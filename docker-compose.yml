@@ -1,0 +1,28 @@
+name: snapshare
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  ai-service:
+    build:
+      context: ./ai-service
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ai-service/.env
+    volumes:
+      - insightface_models:/app/.insightface
+
+  # backend and frontend are intentionally run with `npm run dev` locally
+  # rather than in Docker, so hot-reload stays fast during development.
+  # Point backend/.env's REDIS_URL at redis://localhost:6379 and
+  # AI_SERVICE_URL at http://localhost:8000 when running this way.
+
+volumes:
+  redis_data:
+  insightface_models:

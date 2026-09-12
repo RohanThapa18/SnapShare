@@ -1,0 +1,130 @@
+/* ============================================================
+   SNAPSHARE THEME — "Studio" design system
+   ------------------------------------------------------------
+   This is the ONE file to edit to change the app's look and feel.
+   Every color, radius, shadow and font used across every page/
+   component pulls from the variables defined here via Tailwind's
+   @theme (Tailwind v4).
+
+   Palette source: brand reference board —
+   Navy #374375 · Cloud #FFFCF5 · Periwinkle #BABDE2 ·
+   Maroon #895159 · Peach #DFAEA1
+
+   HOW TO USE:
+   - Change a color below (e.g. --color-primary) and every button,
+     link, and accent across the whole app updates automatically —
+     no need to hunt through individual component files.
+   - Change --font-sans / --font-display to swap the app's typefaces.
+     If you pick different Google Fonts, also update the <link> tag
+     in index.html to load them.
+   - Tailwind classes like `bg-primary`, `text-accent`, `border-error`
+     etc. used throughout the codebase all resolve to these values.
+   ============================================================ */
+
+@theme {
+  /* ---------- Typography ---------- */
+  /* Body copy: clean grotesque for readability at small sizes. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Display: a warmer serif used sparingly for hero copy and big
+     section headings — this is most of the "premium" feel. Falls
+     back to the sans stack everywhere else. */
+  --font-display: "Fraunces", "Inter", ui-serif, Georgia, serif;
+
+  /* ---------- Core brand colors ---------- */
+  --color-background: #fffcf5; /* CLOUD — page background */
+  --color-primary: #374375; /* NAVY — primary actions, nav, headings */
+  --color-primary-hover: #2c3560;
+  --color-secondary: #babde2; /* PERIWINKLE — secondary surfaces / highlights */
+  --color-secondary-hover: #a6a9d6;
+  --color-accent: #dfaea1; /* PEACH — accents, notifications, subtle highlights */
+  --color-accent-hover: #d59c8d;
+  --color-error: #895159; /* MAROON — destructive / important secondary states */
+  --color-error-hover: #723e45;
+  /* Not part of the 5-color brand board, but needed for ordinary
+     confirmation states; chosen to sit quietly alongside it. */
+  --color-success: #5f7a52;
+  --color-success-hover: #4d6442;
+
+  /* ---------- Surfaces & structure ---------- */
+  /* "Surface" colors are used for cards, panels, and modals sitting on
+     top of the page background. Cloud is warm off-white, so surfaces
+     sit one shade whiter/cooler for gentle separation without hard
+     borders. */
+  --color-surface: #ffffff;
+  --color-surface-hover: #f4f1ea;
+  --color-surface-sunken: #faf7ef; /* inset fields, code blocks, wells */
+  --color-border: #e7e2d8;
+
+  /* ---------- Text ---------- */
+  --color-text: #2c3560; /* near-navy, softer than pure primary for body copy */
+  --color-text-muted: #6b7096;
+  /* Text color to use ON TOP of accent/secondary (Peach/Periwinkle)
+     backgrounds, which are too light for white text to sit on. */
+  --color-on-accent: #374375;
+
+  /* ---------- Shape & elevation ---------- */
+  --radius-card: 1.25rem;
+  --radius-control: 0.75rem;
+  --shadow-sm: 0 1px 2px rgba(55, 67, 117, 0.06);
+  --shadow-card: 0 2px 10px rgba(55, 67, 117, 0.06), 0 10px 30px -12px rgba(55, 67, 117, 0.12);
+  --shadow-elevated: 0 20px 50px -20px rgba(55, 67, 117, 0.35);
+}
+
+/* Base page styles pulling from the theme above */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Smooth, consistent scrollbars that match the light theme instead of
+   the default OS scrollbar clashing with it */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
+
+/* A subtle default transition on interactive elements so hover states
+   feel intentional rather than instant/jarring across the whole app */
+button,
+a {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease,
+    transform 150ms ease, box-shadow 150ms ease;
+}
+
+/* Visible, on-brand focus ring everywhere — accessibility must not be
+   sacrificed for the redesign. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect reduced-motion preferences globally: collapse all custom
+   animation/transition durations to near-zero rather than disabling
+   functionality. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
