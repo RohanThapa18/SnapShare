@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import { Photo, Purchase, Download, Like, Favourite, FaceEmbedding } from "../models/index.js";
+import { Photo, Purchase, Download, Like, Favourite, FaceEmbedding, Event } from "../models/index.js";
 import { processImage } from "../services/imageService.js";
 import {
   uploadToCloudinary,
@@ -7,7 +7,7 @@ import {
   getOptimizedUrl,
   getThumbnailUrl,
   getWatermarkedUrl,
-  getOriginalUrl,
+  getInternalFetchUrl,
   checkExistingPublicIds,
 } from "../services/cloudinaryService.js";
 import { enqueuePhotoForAiProcessing } from "../queues/aiProcessing.queue.js";
@@ -126,9 +126,20 @@ export const deletePhoto = asyncHandler(async (req, res) => {
   const photo = await Photo.findById(req.params.photoId);
   if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
 
-  const isOwner = photo.uploaderId.toString() === req.user.id;
-  if (!isOwner) {
-    throw new AppError("You can only delete your own uploads", 403, "NOT_PHOTO_OWNER");
+  const isUploader = photo.uploaderId.toString() === req.user.id;
+
+  let isOrganizer = false;
+  if (!isUploader) {
+    const event = await Event.findById(photo.eventId).select("organizerId");
+    isOrganizer = Boolean(event && event.organizerId.toString() === req.user.id);
+  }
+
+  if (!isUploader && !isOrganizer) {
+    throw new AppError(
+      "You can only delete your own uploads, or as the event organizer",
+      403,
+      "NOT_PHOTO_OWNER"
+    );
   }
 
   await deleteCloudinaryAsset(photo.cloudinaryPublicId);
@@ -177,15 +188,22 @@ export const downloadPhoto = asyncHandler(async (req, res) => {
     }
   }
 
+  const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId));
+  if (!response.ok) {
+    throw new AppError("Could not fetch photo from storage", 502, "CLOUDINARY_FETCH_FAILED");
+  }
+
   photo.downloadCount += 1;
   await photo.save();
   await Download.create({ photoId: photo._id, userId: req.user.id });
 
   const filename = `snapshare_${photo.eventId}_${photo._id}.jpg`;
+  const buffer = Buffer.from(await response.arrayBuffer());
 
-  res
-    .status(200)
-    .json({ success: true, data: { downloadUrl: getOriginalUrl(photo.cloudinaryPublicId, { filename }) } });
+  res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+  res.status(200).send(buffer);
 });
 
 /**

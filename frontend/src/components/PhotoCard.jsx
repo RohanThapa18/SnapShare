@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heart, Bookmark, Download, Lock, Loader2, Expand } from "lucide-react";
+import { Heart, Bookmark, Download, Lock, Loader2, Expand, Trash2 } from "lucide-react";
 
 /**
  * Renders a photo at its natural aspect ratio (no forced square crop) —
@@ -14,6 +14,7 @@ export default function PhotoCard({
   onFavourite,
   onDownload,
   onBuy,
+  onDelete,
   liked,
   favourited,
   downloading,
@@ -69,6 +70,15 @@ export default function PhotoCard({
           {onFavourite && (
             <button onClick={() => onFavourite(photo)} className="text-xs text-white" aria-label="Favourite">
               <Bookmark size={16} fill={favourited ? "#BABDE2" : "none"} color={favourited ? "#BABDE2" : "white"} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(photo)}
+              className="text-white/80 hover:text-red-400 transition"
+              aria-label="Delete photo"
+            >
+              <Trash2 size={16} />
             </button>
           )}
         </div>

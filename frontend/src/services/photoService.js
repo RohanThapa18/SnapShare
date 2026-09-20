@@ -16,7 +16,8 @@ export const uploadCommunityPhotos = (eventId, formData, onProgress) =>
 
 export const deletePhoto = (photoId) => api.delete(`/photos/${photoId}`);
 export const updatePhotoMeta = (photoId, payload) => api.put(`/photos/${photoId}`, payload);
-export const downloadPhoto = (photoId) => api.get(`/photos/${photoId}/download`);
+export const downloadPhoto = (photoId) =>
+  api.get(`/photos/${photoId}/download`, { responseType: "blob" });
 export const syncPhotosWithCloudinary = (eventId) => api.post(`/events/${eventId}/photos/sync`);
 
 export const likePhoto = (photoId) => api.post(`/photos/${photoId}/like`);

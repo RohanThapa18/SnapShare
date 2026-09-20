@@ -14,7 +14,7 @@ import PhotographersPanel from "../components/PhotographersPanel";
 import BackButton from "../components/BackButton";
 import EmptyState from "../components/EmptyState";
 import { PhotoGridSkeleton } from "../components/Skeleton";
-import { triggerDownload } from "../utils/download";
+import { triggerDownload, triggerBlobDownload, filenameFromContentDisposition } from "../utils/download";
 import * as paymentService from "../services/paymentService";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers", "Settings"];
@@ -73,7 +73,7 @@ export default function EventDetails() {
 
   useEffect(() => {
     if (viewerAccess.isOrganizer) {
-      eventService.getEventStats(id).then((res) => setStats(res.data.data)).catch(() => {});
+      eventService.getEventStats(id).then((res) => setStats(res.data.data)).catch(() => { });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, viewerAccess.isOrganizer]);
@@ -96,8 +96,8 @@ export default function EventDetails() {
       });
       toast(
         "Razorpay checkout would open here with orderId " +
-          res.data.data.orderId +
-          " — wire up Razorpay Checkout.js on the frontend using razorpayKeyId from this response.",
+        res.data.data.orderId +
+        " — wire up Razorpay Checkout.js on the frontend using razorpayKeyId from this response.",
         { duration: 6000 }
       );
     } catch (err) {
@@ -109,7 +109,8 @@ export default function EventDetails() {
     setDownloadingId(photo._id);
     try {
       const res = await photoService.downloadPhoto(photo._id);
-      triggerDownload(res.data.data.downloadUrl);
+      const filename = filenameFromContentDisposition(res.headers["content-disposition"], `photo_${photo._id}.jpg`);
+      triggerBlobDownload(res.data, filename);
       toast.success("Download started");
     } catch (err) {
       toast.error(err.response?.data?.message || "Download failed");
@@ -165,6 +166,17 @@ export default function EventDetails() {
       setLeaving(false);
     }
   };
+
+  const handleDeletePhoto = async (photo) => {
+  if (!window.confirm("Delete this photo permanently? This can't be undone.")) return;
+  try {
+    await photoService.deletePhoto(photo._id);
+    setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
+    toast.success("Photo deleted");
+  } catch (err) {
+    toast.error(err.response?.data?.message || "Couldn't delete photo");
+  }
+};
 
   const handleDelete = async () => {
     if (
@@ -331,9 +343,8 @@ export default function EventDetails() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
-              tab === t ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-primary"
-            }`}
+            className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${tab === t ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-primary"
+              }`}
           >
             {t}
           </button>
@@ -347,9 +358,8 @@ export default function EventDetails() {
               <button
                 key={a}
                 onClick={() => setAlbum(a)}
-                className={`px-3 py-1 rounded-full text-xs transition ${
-                  album === a ? "bg-primary text-white" : "bg-surface border border-border text-text-muted hover:text-primary"
-                }`}
+                className={`px-3 py-1 rounded-full text-xs transition ${album === a ? "bg-primary text-white" : "bg-surface border border-border text-text-muted hover:text-primary"
+                  }`}
               >
                 {a}
               </button>
@@ -378,6 +388,7 @@ export default function EventDetails() {
                   onFavourite={handleFavourite}
                   onDownload={handleDownload}
                   onBuy={handleBuy}
+                  onDelete={isOrganizer ? handleDeletePhoto : undefined}
                   downloading={downloadingId === photo._id}
                 />
               ))}
@@ -392,6 +403,7 @@ export default function EventDetails() {
               onDownload={handleDownload}
               onLike={handleLike}
               onFavourite={handleFavourite}
+              onDelete={isOrganizer ? handleDeletePhoto : undefined}
               downloadingId={downloadingId}
             />
           )}

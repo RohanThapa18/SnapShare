@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Download, Heart, Bookmark, Maximize, Loader2 } from "lucide-react";
-
+import { X, ChevronLeft, ChevronRight, Download, Heart, Bookmark, Maximize, Loader2, Trash2 } from "lucide-react";
 /**
  * Full-screen photo viewer ("lightbox"). Renders on top of everything
  * else in the app instead of navigating away from the gallery.
@@ -26,6 +25,7 @@ export default function PhotoLightbox({
   onNavigate,
   onDownload,
   onLike,
+  onDelete,
   onFavourite,
   likedIds,
   favouritedIds,
@@ -93,7 +93,7 @@ export default function PhotoLightbox({
     if (document.fullscreenElement) {
       document.exitFullscreen?.();
     } else {
-      el.requestFullscreen?.().catch(() => {});
+      el.requestFullscreen?.().catch(() => { });
     }
   };
 
@@ -110,9 +110,8 @@ export default function PhotoLightbox({
       aria-modal="true"
       aria-label="Photo viewer"
       tabIndex={-1}
-      className={`fixed inset-0 z-[100] flex items-center justify-center outline-none ${
-        closing ? "animate-fade-out" : "animate-fade-in"
-      }`}
+      className={`fixed inset-0 z-[100] flex items-center justify-center outline-none ${closing ? "animate-fade-out" : "animate-fade-in"
+        }`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -171,9 +170,8 @@ export default function PhotoLightbox({
         key={photo._id}
         src={photo.url}
         alt=""
-        className={`relative z-[5] max-h-[82vh] max-w-[92vw] sm:max-w-[85vw] object-contain rounded-lg shadow-elevated ${
-          closing ? "animate-scale-out" : "animate-scale-in"
-        }`}
+        className={`relative z-[5] max-h-[82vh] max-w-[92vw] sm:max-w-[85vw] object-contain rounded-lg shadow-elevated ${closing ? "animate-scale-out" : "animate-scale-in"
+          }`}
       />
 
       {/* Bottom control bar */}
@@ -207,6 +205,15 @@ export default function PhotoLightbox({
             >
               {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
               {isDownloading ? "Downloading…" : "Download"}
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(photo)}
+              className="flex items-center gap-1.5 text-white/90 hover:text-red-400 transition text-sm"
+              aria-label="Delete photo"
+            >
+              <Trash2 size={18} />
             </button>
           )}
         </div>
