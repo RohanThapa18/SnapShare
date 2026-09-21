@@ -1,13 +1,6 @@
 name: snapshare
 
 services:
-  mongo:
-    image: mongo:7
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
   redis:
     image: redis:7-alpine
     ports:
@@ -34,12 +27,13 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      MONGO_URI: mongodb://mongo:27017/snapshare
+      # MONGO_URI is NOT overridden here — it comes from backend/.env,
+      # which should point at your shared MongoDB Atlas cluster so that
+      # you and your friend hit the same database.
       REDIS_URL: redis://redis:6379
       AI_SERVICE_URL: http://ai-service:8000
       FRONTEND_URL: http://localhost:5173
     depends_on:
-      - mongo
       - redis
       - ai-service
 
@@ -55,6 +49,5 @@ services:
       - backend
 
 volumes:
-  mongo_data:
   redis_data:
   insightface_models:
