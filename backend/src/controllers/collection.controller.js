@@ -1,6 +1,6 @@
 import archiver from "archiver";
 import asyncHandler from "express-async-handler";
-import { Event, MyPhotosCollection, Photo, Purchase, Download } from "../models/index.js";
+import { Event, MyPhotosCollection, Photo, Purchase, Download, Like, Favourite } from "../models/index.js";
 import { getOptimizedUrl, getWatermarkedUrl, getInternalFetchUrl } from "../services/cloudinaryService.js";
 import { AppError } from "../utils/AppError.js";
 
@@ -19,11 +19,15 @@ export const getMyPhotosCollection = asyncHandler(async (req, res) => {
     return res.status(200).json({ success: true, data: { photos: [], hasSearched: Boolean(collection) } });
   }
 
-  const [photos, purchases] = await Promise.all([
+  const [photos, purchases, likes, favourites] = await Promise.all([
     Photo.find({ _id: { $in: collection.photoIds } }).lean(),
     Purchase.find({ userId: req.user.id, eventId }).select("photoId"),
+    Like.find({ userId: req.user.id, photoId: { $in: collection.photoIds } }).select("photoId"),
+    Favourite.find({ userId: req.user.id, photoId: { $in: collection.photoIds } }).select("photoId"),
   ]);
   const purchasedIds = new Set(purchases.map((p) => p.photoId?.toString()));
+  const likedIds = new Set(likes.map((l) => l.photoId.toString()));
+  const favouritedIds = new Set(favourites.map((f) => f.photoId.toString()));
 
   const results = photos
     .map((photo) => {
@@ -33,10 +37,11 @@ export const getMyPhotosCollection = asyncHandler(async (req, res) => {
         url: photo.isPaid && !isPurchased ? getWatermarkedUrl(photo.cloudinaryPublicId) : getOptimizedUrl(photo.cloudinaryPublicId),
         purchased: photo.isPaid ? isPurchased : true,
         confidence: collection.confidenceByPhotoId.get(photo._id.toString()) ?? undefined,
+        likedByMe: likedIds.has(photo._id.toString()),
+        favouritedByMe: favouritedIds.has(photo._id.toString()),
       };
     })
     .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
-
   res.status(200).json({ success: true, data: { photos: results, hasSearched: true } });
 });
 
@@ -127,10 +132,10 @@ export const downloadMyPhotosZip = asyncHandler(async (req, res) => {
   // Record downloads + bump counters for every file that actually made
   // it into the archive, same bookkeeping as the single-photo download.
   if (downloadedPhotoIds.length) {
-    Photo.updateMany({ _id: { $in: downloadedPhotoIds } }, { $inc: { downloadCount: 1 } }).catch(() => {});
+    Photo.updateMany({ _id: { $in: downloadedPhotoIds } }, { $inc: { downloadCount: 1 } }).catch(() => { });
     Download.insertMany(
       downloadedPhotoIds.map((photoId) => ({ photoId, userId: req.user.id })),
       { ordered: false }
-    ).catch(() => {});
+    ).catch(() => { });
   }
 });

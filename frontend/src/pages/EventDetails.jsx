@@ -16,6 +16,7 @@ import EmptyState from "../components/EmptyState";
 import { PhotoGridSkeleton } from "../components/Skeleton";
 import { triggerDownload, triggerBlobDownload, filenameFromContentDisposition } from "../utils/download";
 import * as paymentService from "../services/paymentService";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers", "Settings"];
 
@@ -53,7 +54,7 @@ export default function EventDetails() {
   const [passcodeCopied, setPasscodeCopied] = useState(false);
 
   const isOrganizer = viewerAccess.isOrganizer;
-
+  const [confirmState, setConfirmState] = useState(null);
   const loadEvent = () =>
     eventService.getEvent(id).then((res) => {
       setEvent(res.data.data.event);
@@ -119,24 +120,66 @@ export default function EventDetails() {
     }
   };
 
+  const [likedIds, setLikedIds] = useState(new Set());
+  const [favouritedIds, setFavouritedIds] = useState(new Set());
+
+  // merge likedByMe/favouritedByMe flags in whenever photos load
+  useEffect(() => {
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      photos.forEach((p) => { if (p.likedByMe) next.add(p._id); });
+      return next;
+    });
+    setFavouritedIds((prev) => {
+      const next = new Set(prev);
+      photos.forEach((p) => { if (p.favouritedByMe) next.add(p._id); });
+      return next;
+    });
+  }, [photos]);
+
   const handleLike = async (photo) => {
+    const isLiked = likedIds.has(photo._id);
+    // optimistic update — no reload
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      isLiked ? next.delete(photo._id) : next.add(photo._id);
+      return next;
+    });
+    setPhotos((prev) =>
+      prev.map((p) => (p._id === photo._id ? { ...p, likeCount: (p.likeCount ?? 0) + (isLiked ? -1 : 1) } : p))
+    );
     try {
-      await photoService.likePhoto(photo._id);
-      loadPhotos();
-    } catch {
-      /* likely already liked; ignore */
+      isLiked ? await photoService.unlikePhoto(photo._id) : await photoService.likePhoto(photo._id);
+    } catch (err) {
+      // revert on failure
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        isLiked ? next.add(photo._id) : next.delete(photo._id);
+        return next;
+      });
+      toast.error(err.response?.data?.message || "Couldn't update like");
     }
   };
 
   const handleFavourite = async (photo) => {
+    const isFavourited = favouritedIds.has(photo._id);
+    setFavouritedIds((prev) => {
+      const next = new Set(prev);
+      isFavourited ? next.delete(photo._id) : next.add(photo._id);
+      return next;
+    });
     try {
-      await photoService.favouritePhoto(photo._id);
-      toast.success("Added to favourites");
-    } catch {
-      /* already favourited; ignore */
+      isFavourited ? await photoService.unfavouritePhoto(photo._id) : await photoService.favouritePhoto(photo._id);
+      toast.success(isFavourited ? "Removed from favourites" : "Added to favourites");
+    } catch (err) {
+      setFavouritedIds((prev) => {
+        const next = new Set(prev);
+        isFavourited ? next.add(photo._id) : next.delete(photo._id);
+        return next;
+      });
+      toast.error(err.response?.data?.message || "Couldn't update favourite");
     }
   };
-
   const loadQr = async () => {
     const res = await eventService.getJoinQr(id);
     setJoinQr(res.data.data);
@@ -153,48 +196,63 @@ export default function EventDetails() {
     setTimeout(() => setIdCopied(false), 1500);
   };
 
-  const handleLeave = async () => {
-    if (!window.confirm("Leave this event? You'll need the passcode or QR code again to rejoin.")) return;
-    setLeaving(true);
-    try {
-      await eventService.leaveEvent(id);
-      toast.success("Left the event");
-      navigate("/dashboard");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to leave event");
-    } finally {
-      setLeaving(false);
-    }
-  };
-
-  const handleDeletePhoto = async (photo) => {
-  if (!window.confirm("Delete this photo permanently? This can't be undone.")) return;
-  try {
-    await photoService.deletePhoto(photo._id);
-    setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
-    toast.success("Photo deleted");
-  } catch (err) {
-    toast.error(err.response?.data?.message || "Couldn't delete photo");
-  }
+const handleLeave = () => {
+  setConfirmState({
+    title: "Leave event?",
+    message: "You'll need the passcode or QR code again to rejoin.",
+    confirmLabel: "Leave",
+    danger: true,
+    onConfirm: async () => {
+      setLeaving(true);
+      try {
+        await eventService.leaveEvent(id);
+        toast.success("Left the event");
+        navigate("/dashboard");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to leave event");
+      } finally {
+        setLeaving(false);
+      }
+    },
+  });
 };
 
-  const handleDelete = async () => {
-    if (
-      !window.confirm(
-        "Delete this event permanently? This removes all photos, participants, and cannot be undone."
-      )
-    )
-      return;
-    setDeleting(true);
-    try {
-      await eventService.deleteEvent(id);
-      toast.success("Event deleted");
-      navigate("/dashboard");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete event");
-      setDeleting(false);
-    }
-  };
+const handleDeletePhoto = (photo) => {
+  setConfirmState({
+    title: "Delete this photo?",
+    message: "This permanently removes it for everyone. This can't be undone.",
+    confirmLabel: "Delete Photo",
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await photoService.deletePhoto(photo._id);
+        setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
+        toast.success("Photo deleted");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Couldn't delete photo");
+      }
+    },
+  });
+};
+const handleDelete = () => {
+  setConfirmState({
+    title: "Delete event permanently?",
+    message: "This removes all photos, participants, and cannot be undone.",
+    confirmLabel: "Delete Event",
+    danger: true,
+    onConfirm: async () => {
+      setDeleting(true);
+      try {
+        await eventService.deleteEvent(id);
+        toast.success("Event deleted");
+        navigate("/dashboard");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to delete event");
+        setDeleting(false);
+      }
+    },
+  });
+};
 
   const handleExtend = async (e) => {
     e.preventDefault();
@@ -226,12 +284,8 @@ export default function EventDetails() {
     }
   };
 
-  const handleRegeneratePasscode = async () => {
-    if (
-      passcode &&
-      !window.confirm("Generate a new passcode? The current one will stop working immediately.")
-    )
-      return;
+const handleRegeneratePasscode = () => {
+  const doRegenerate = async () => {
     setRegenerating(true);
     try {
       const res = await eventService.regeneratePasscode(id);
@@ -240,11 +294,22 @@ export default function EventDetails() {
       setPasscodeVisible(true);
       toast.success("New passcode generated");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Couldn't generate a new passcode");
+      toast.error(err.response?.data?.message || "Failed to regenerate passcode");
     } finally {
       setRegenerating(false);
     }
   };
+
+  if (!passcode) return doRegenerate();
+
+  setConfirmState({
+    title: "Generate a new passcode?",
+    message: "The current one will stop working immediately.",
+    confirmLabel: "Regenerate",
+    danger: true,
+    onConfirm: doRegenerate,
+  });
+};
 
   const handleCopyPasscode = async () => {
     if (!passcode) return;
@@ -390,6 +455,9 @@ export default function EventDetails() {
                   onBuy={handleBuy}
                   onDelete={isOrganizer ? handleDeletePhoto : undefined}
                   downloading={downloadingId === photo._id}
+                  liked={likedIds.has(photo._id)}
+                  favourited={favouritedIds.has(photo._id)}
+
                 />
               ))}
             </div>
@@ -405,6 +473,15 @@ export default function EventDetails() {
               onFavourite={handleFavourite}
               onDelete={isOrganizer ? handleDeletePhoto : undefined}
               downloadingId={downloadingId}
+              likedIds={likedIds}
+              favouritedIds={favouritedIds}
+            />
+          )}
+           {/*Confirm dialog for destructive actions Doubt if goes here or not*/ }
+          {confirmState && (
+            <ConfirmDialog
+              {...confirmState}
+              onCancel={() => setConfirmState(null)}
             />
           )}
         </div>
@@ -426,6 +503,8 @@ export default function EventDetails() {
           onBuy={handleBuy}
           onLike={handleLike}
           onFavourite={handleFavourite}
+          likedIds={likedIds}
+          favouritedIds={favouritedIds}
         />
       )}
 

@@ -183,7 +183,7 @@ export default function PhotoLightbox({
               className="flex items-center gap-1.5 text-white/90 hover:text-white transition text-sm"
               aria-label="Like photo"
             >
-              <Heart size={18} fill={isLiked ? "#DFAEA1" : "none"} color={isLiked ? "#DFAEA1" : "currentColor"} />
+              <Heart size={18} fill={isLiked ? "#ef4444" : "none"} color={isLiked ? "#ef4444" : "currentColor"} />
               {photo.likeCount ?? 0}
             </button>
           )}
@@ -193,7 +193,7 @@ export default function PhotoLightbox({
               className="text-white/90 hover:text-white transition"
               aria-label="Save to favourites"
             >
-              <Bookmark size={18} fill={isFavourited ? "#BABDE2" : "none"} color={isFavourited ? "#BABDE2" : "currentColor"} />
+              <Bookmark size={18} fill={isFavourited ? "#3b82f6" : "none"} color={isFavourited ? "#3b82f6" : "currentColor"} />
             </button>
           )}
           {onDownload && (!photo.isPaid || photo.purchased) && (
@@ -216,6 +216,7 @@ export default function PhotoLightbox({
               <Trash2 size={18} />
             </button>
           )}
+         
         </div>
       </div>
     </div>

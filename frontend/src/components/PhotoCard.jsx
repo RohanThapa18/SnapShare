@@ -63,13 +63,13 @@ export default function PhotoCard({
         <div className="flex items-center gap-3">
           {onLike && (
             <button onClick={() => onLike(photo)} className="flex items-center gap-1 text-xs text-white" aria-label="Like">
-              <Heart size={16} fill={liked ? "#DFAEA1" : "none"} color={liked ? "#DFAEA1" : "white"} />
+              <Heart size={16} fill={liked ? "#ef4444" : "none"} color={liked ? "#ef4444" : "white"} />
               {photo.likeCount ?? 0}
             </button>
           )}
           {onFavourite && (
             <button onClick={() => onFavourite(photo)} className="text-xs text-white" aria-label="Favourite">
-              <Bookmark size={16} fill={favourited ? "#BABDE2" : "none"} color={favourited ? "#BABDE2" : "white"} />
+             <Bookmark size={16} fill={favourited ? "#3b82f6" : "none"} color={favourited ? "#3b82f6" : "white"} />
             </button>
           )}
           {onDelete && (

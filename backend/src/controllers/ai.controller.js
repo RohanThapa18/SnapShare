@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
-import { FaceEmbedding, Photo, EventParticipant, Purchase, MyPhotosCollection } from "../models/index.js";
+import { FaceEmbedding, Photo, EventParticipant, Purchase, MyPhotosCollection, Like, Favourite } from "../models/index.js";
 import { embedSelfie, cosineSimilarity } from "../services/aiService.js";
 import { getOptimizedUrl, getWatermarkedUrl } from "../services/cloudinaryService.js";
 import { AppError } from "../utils/AppError.js";
@@ -83,7 +83,13 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
 
   const purchases = await Purchase.find({ userId: req.user.id, eventId }).select("photoId");
   const purchasedIds = new Set(purchases.map((p) => p.photoId?.toString()));
-
+  const matchedIds = [...matchedPhotoIds.keys()];
+  const [likes, favourites] = await Promise.all([
+    Like.find({ userId: req.user.id, photoId: { $in: matchedIds } }).select("photoId"),
+    Favourite.find({ userId: req.user.id, photoId: { $in: matchedIds } }).select("photoId"),
+  ]);
+  const likedIds = new Set(likes.map((l) => l.photoId.toString()));
+  const favouritedIds = new Set(favourites.map((f) => f.photoId.toString()));
   const results = photos
     .map((photo) => {
       const isPurchased = purchasedIds.has(photo._id.toString());
@@ -95,6 +101,8 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
             : getOptimizedUrl(photo.cloudinaryPublicId),
         purchased: photo.isPaid ? isPurchased : true,
         confidence: Math.round(matchedPhotoIds.get(photo._id.toString()) * 100) / 100,
+        likedByMe: likedIds.has(photo._id.toString()),
+        favouritedByMe: favouritedIds.has(photo._id.toString()),
       };
     })
     .sort((a, b) => b.confidence - a.confidence);

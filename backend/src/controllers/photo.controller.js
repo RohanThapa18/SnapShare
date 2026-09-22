@@ -105,16 +105,31 @@ export const listPhotos = asyncHandler(async (req, res) => {
     .lean();
 
   let purchasedPhotoIds = new Set();
+  let likedPhotoIds = new Set();
+  let favouritedPhotoIds = new Set();
+
   if (req.user) {
-    const purchases = await Purchase.find({ userId: req.user.id, eventId }).select("photoId");
+    const photoIds = photos.map((p) => p._id);
+    const [purchases, likes, favourites] = await Promise.all([
+      Purchase.find({ userId: req.user.id, eventId }).select("photoId"),
+      Like.find({ userId: req.user.id, photoId: { $in: photoIds } }).select("photoId"),
+      Favourite.find({ userId: req.user.id, photoId: { $in: photoIds } }).select("photoId"),
+    ]);
     purchasedPhotoIds = new Set(purchases.map((p) => p.photoId?.toString()));
+    likedPhotoIds = new Set(likes.map((l) => l.photoId.toString()));
+    favouritedPhotoIds = new Set(favourites.map((f) => f.photoId.toString()));
   }
 
   const enriched = photos.map((photo) => {
+    const base = {
+      ...photo,
+      likedByMe: likedPhotoIds.has(photo._id.toString()),
+      favouritedByMe: favouritedPhotoIds.has(photo._id.toString()),
+    };
     if (photo.isPaid && !purchasedPhotoIds.has(photo._id.toString())) {
-      return { ...photo, url: getWatermarkedUrl(photo.cloudinaryPublicId), purchased: false };
+      return { ...base, url: getWatermarkedUrl(photo.cloudinaryPublicId), purchased: false };
     }
-    return { ...photo, purchased: photo.isPaid };
+    return { ...base, purchased: photo.isPaid };
   });
 
   const total = await Photo.countDocuments(filter);
