@@ -3,7 +3,7 @@ import * as paymentService from "../services/paymentService";
 import * as photoService from "../services/photoService";
 import toast from "react-hot-toast";
 import BackButton from "../components/BackButton";
-import { triggerDownload } from "../utils/download";
+import { triggerBlobDownload, filenameFromContentDisposition } from "../utils/download";
 
 export default function PurchaseHistory() {
   const [purchases, setPurchases] = useState([]);
@@ -15,7 +15,8 @@ export default function PurchaseHistory() {
   const handleDownload = async (photoId) => {
     try {
       const res = await photoService.downloadPhoto(photoId);
-      triggerDownload(res.data.data.downloadUrl);
+      const filename = filenameFromContentDisposition(res.headers["content-disposition"], `photo_${photoId}.jpg`);
+      triggerBlobDownload(res.data, filename);
       toast.success("Download started");
     } catch (err) {
       toast.error(err.response?.data?.message || "Download failed");

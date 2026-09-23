@@ -48,3 +48,5 @@ photoRouter.post("/:photoId/favourite", interactionController.favouritePhoto);
 photoRouter.delete("/:photoId/favourite", interactionController.unfavouritePhoto);
 
 photoRouter.get("/favourites/mine", interactionController.listMyFavourites);
+photoRouter.get("/favourites/mine", interactionController.listMyFavourites);
+photoRouter.get("/likes/mine", interactionController.listMyLikes);

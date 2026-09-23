@@ -31,6 +31,9 @@ export default function Navbar() {
               <Link to="/dashboard" className="text-text-muted hover:text-text transition">
                 Dashboard
               </Link>
+              <Link to="/liked" className="text-text-muted hover:text-text transition">
+                Liked & Favourites
+              </Link>
               <Link to="/purchases" className="text-text-muted hover:text-text transition">
                 Purchases
               </Link>
@@ -71,6 +74,9 @@ export default function Navbar() {
             <>
               <Link to="/dashboard" className="text-text-muted hover:text-text transition" onClick={closeMenu}>
                 Dashboard
+              </Link>
+              <Link to="/liked" className="text-text-muted hover:text-text transition" onClick={closeMenu}>
+                Liked & Favourites
               </Link>
               <Link to="/purchases" className="text-text-muted hover:text-text transition" onClick={closeMenu}>
                 Purchases

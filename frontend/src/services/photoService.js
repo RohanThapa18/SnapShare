@@ -24,9 +24,12 @@ export const likePhoto = (photoId) => api.post(`/photos/${photoId}/like`);
 export const unlikePhoto = (photoId) => api.delete(`/photos/${photoId}/like`);
 export const favouritePhoto = (photoId) => api.post(`/photos/${photoId}/favourite`);
 export const unfavouritePhoto = (photoId) => api.delete(`/photos/${photoId}/favourite`);
+export const listMyLikes = () => api.get("/photos/likes/mine");
 export const listMyFavourites = () => api.get("/photos/favourites/mine");
 
 export const findMyPhotos = (eventId, formData) =>
   api.post(`/events/${eventId}/find-my-photos`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
+  

@@ -3,7 +3,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Navbar from "./components/Navbar";
-
+import LikedFavourites from "./pages/LikedFavourites";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -57,7 +57,7 @@ function App() {
           <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
 
           <Route path="/purchases" element={<ProtectedRoute><PurchaseHistory /></ProtectedRoute>} />
-
+          <Route path="/liked" element={<ProtectedRoute><LikedFavourites /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
