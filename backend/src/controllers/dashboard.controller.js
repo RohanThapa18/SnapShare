@@ -2,7 +2,7 @@ import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
 import { Event, Photo, EventParticipant, EventPhotographer } from "../models/index.js";
 import { EVENT_STATUS } from "../constants/enums.js";
-
+import { expireOverdueEvents } from "../utils/expireOverdueEvents.js";
 /**
  * Unified dashboard — there's no fixed ORGANIZER/PHOTOGRAPHER account
  * type anymore, so this single endpoint returns whichever stats are
@@ -11,6 +11,7 @@ import { EVENT_STATUS } from "../constants/enums.js";
  * the frontend decides what to show/hide based on the counts.
  */
 export const getMyDashboard = asyncHandler(async (req, res) => {
+  await expireOverdueEvents();
   const userId = new mongoose.Types.ObjectId(req.user.id);
 
   const organizedEvents = await Event.find({ organizerId: userId }).select("_id");

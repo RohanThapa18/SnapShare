@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon } from "lucide-react";
+import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings } from "lucide-react";
 import * as eventService from "../services/eventService";
 import * as photoService from "../services/photoService";
 import PhotoCard from "../components/PhotoCard";
@@ -17,9 +17,9 @@ import { PhotoGridSkeleton } from "../components/Skeleton";
 import { triggerDownload, triggerBlobDownload, filenameFromContentDisposition } from "../utils/download";
 import * as paymentService from "../services/paymentService";
 import ConfirmDialog from "../components/ConfirmDialog";
-
-const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers", "Settings"];
-
+import Modal from "../components/Modal";
+const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
+import { nowLocalInput } from "../utils/datetime";
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export default function EventDetails() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [stats, setStats] = useState(null);
-
+  const [showSettings, setShowSettings] = useState(false);
   // Organizer passcode reveal — never fetched until the organizer opens
   // Settings, decrypted server-side on demand (see event.controller.js).
   const [passcode, setPasscode] = useState(null);
@@ -82,11 +82,18 @@ export default function EventDetails() {
   useEffect(() => {
     if (tab === "Gallery") loadPhotos();
   }, [tab, album, id]);
-
   useEffect(() => {
-    if (tab === "Settings" && isOrganizer && passcode === null && !passcodeLoading) loadPasscode();
+    setDeleting(false);
+    setConfirmState(null);
+    setShowSettings(false);
+    setPasscode(null);
+    setJoinQr(null);
+    setPhotographerJoinQr(null);
+  }, [id]);
+  useEffect(() => {
+    if (showSettings && isOrganizer && passcode === null && !passcodeLoading) loadPasscode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, isOrganizer]);
+  }, [showSettings, isOrganizer]);
 
   const handleBuy = async (photo) => {
     try {
@@ -196,70 +203,73 @@ export default function EventDetails() {
     setTimeout(() => setIdCopied(false), 1500);
   };
 
-const handleLeave = () => {
-  setConfirmState({
-    title: "Leave event?",
-    message: "You'll need the passcode or QR code again to rejoin.",
-    confirmLabel: "Leave",
-    danger: true,
-    onConfirm: async () => {
-      setLeaving(true);
-      try {
-        await eventService.leaveEvent(id);
-        toast.success("Left the event");
-        navigate("/dashboard");
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to leave event");
-      } finally {
-        setLeaving(false);
-      }
-    },
-  });
-};
+  const handleLeave = () => {
+    setConfirmState({
+      title: "Leave event?",
+      message: "You'll need the passcode or QR code again to rejoin.",
+      confirmLabel: "Leave",
+      danger: true,
+      onConfirm: async () => {
+        setLeaving(true);
+        try {
+          await eventService.leaveEvent(id);
+          toast.success("Left the event");
+          navigate("/dashboard");
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Failed to leave event");
+        } finally {
+          setLeaving(false);
+        }
+      },
+    });
+  };
 
-const handleDeletePhoto = (photo) => {
-  setConfirmState({
-    title: "Delete this photo?",
-    message: "This permanently removes it for everyone. This can't be undone.",
-    confirmLabel: "Delete Photo",
-    danger: true,
-    onConfirm: async () => {
-      try {
-        await photoService.deletePhoto(photo._id);
-        setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
-        toast.success("Photo deleted");
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Couldn't delete photo");
-      }
-    },
-  });
-};
-const handleDelete = () => {
-  setConfirmState({
-    title: "Delete event permanently?",
-    message: "This removes all photos, participants, and cannot be undone.",
-    confirmLabel: "Delete Event",
-    danger: true,
-    onConfirm: async () => {
-      setDeleting(true);
-      try {
-        await eventService.deleteEvent(id);
-        toast.success("Event deleted");
-        navigate("/dashboard");
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to delete event");
-        setDeleting(false);
-      }
-    },
-  });
-};
+  const handleDeletePhoto = (photo) => {
+    setConfirmState({
+      title: "Delete this photo?",
+      message: "This permanently removes it for everyone. This can't be undone.",
+      confirmLabel: "Delete Photo",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await photoService.deletePhoto(photo._id);
+          setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
+          toast.success("Photo deleted");
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Couldn't delete photo");
+        }
+      },
+    });
+  };
+  const handleDelete = () => {
+    setConfirmState({
+      title: "Delete event permanently?",
+      message: "This removes all photos, participants, and cannot be undone.",
+      confirmLabel: "Delete Event",
+      danger: true,
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          await eventService.deleteEvent(id);
+          toast.success("Event deleted");
+          navigate("/dashboard");
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Failed to delete event");
+          setDeleting(false);
+        }
+      },
+    });
+  };
 
   const handleExtend = async (e) => {
     e.preventDefault();
-    if (!newExpiryDate) return;
+    if (new Date(newExpiryDate) <= new Date()) {
+      toast.error("Pick an expiry date in the future");
+      return;
+    }
     setExtending(true);
     try {
-      const res = await eventService.updateEvent(id, { expiryDate: newExpiryDate });
+      const res = await eventService.updateEvent(id, { expiryDate: new Date(newExpiryDate).toISOString() });
       setEvent(res.data.data.event);
       toast.success("Event duration extended");
       setNewExpiryDate("");
@@ -284,32 +294,32 @@ const handleDelete = () => {
     }
   };
 
-const handleRegeneratePasscode = () => {
-  const doRegenerate = async () => {
-    setRegenerating(true);
-    try {
-      const res = await eventService.regeneratePasscode(id);
-      setPasscode(res.data.data.passcode);
-      setPasscodeNeedsRegen(false);
-      setPasscodeVisible(true);
-      toast.success("New passcode generated");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to regenerate passcode");
-    } finally {
-      setRegenerating(false);
-    }
+  const handleRegeneratePasscode = () => {
+    const doRegenerate = async () => {
+      setRegenerating(true);
+      try {
+        const res = await eventService.regeneratePasscode(id);
+        setPasscode(res.data.data.passcode);
+        setPasscodeNeedsRegen(false);
+        setPasscodeVisible(true);
+        toast.success("New passcode generated");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to regenerate passcode");
+      } finally {
+        setRegenerating(false);
+      }
+    };
+
+    if (!passcode) return doRegenerate();
+
+    setConfirmState({
+      title: "Generate a new passcode?",
+      message: "The current one will stop working immediately.",
+      confirmLabel: "Regenerate",
+      danger: true,
+      onConfirm: doRegenerate,
+    });
   };
-
-  if (!passcode) return doRegenerate();
-
-  setConfirmState({
-    title: "Generate a new passcode?",
-    message: "The current one will stop working immediately.",
-    confirmLabel: "Regenerate",
-    danger: true,
-    onConfirm: doRegenerate,
-  });
-};
 
   const handleCopyPasscode = async () => {
     if (!passcode) return;
@@ -376,6 +386,15 @@ const handleRegeneratePasscode = () => {
           >
             <LogOut size={14} />
             {leaving ? "Leaving..." : "Leave Event"}
+          </button>
+        )}
+        {isOrganizer && (
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary border border-border hover:border-primary/50 px-3 py-1.5 rounded-lg transition"
+          >
+            <Settings size={14} />
+            Settings
           </button>
         )}
       </div>
@@ -477,7 +496,7 @@ const handleRegeneratePasscode = () => {
               favouritedIds={favouritedIds}
             />
           )}
-           {/*Confirm dialog for destructive actions Doubt if goes here or not*/ }
+          {/*Confirm dialog for destructive actions Doubt if goes here or not*/}
           {confirmState && (
             <ConfirmDialog
               {...confirmState}
@@ -508,174 +527,176 @@ const handleRegeneratePasscode = () => {
         />
       )}
 
-      {tab === "Participants" && isOrganizer && <ParticipantsPanel eventId={id} />}
+      {tab === "Participants" && <ParticipantsPanel eventId={id} isOrganizer={isOrganizer} />}
+      {tab === "Photographers" && <PhotographersPanel eventId={id} isOrganizer={isOrganizer} />}
 
-      {tab === "Photographers" && isOrganizer && <PhotographersPanel eventId={id} />}
-
-      {tab === "Settings" && isOrganizer && (
-        <div className="space-y-6 max-w-md">
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-            <h3 className="font-medium mb-1 flex items-center gap-1.5">
-              <KeyRound size={16} />
-              Event Passcode
-            </h3>
-            <p className="text-xs text-text-muted mb-4">
-              Share this with people joining as regular participants. You can come back and view it here any time —
-              it isn't only shown once anymore.
-            </p>
-            {passcodeLoading ? (
-              <div className="skeleton h-11 w-full rounded-lg" />
-            ) : passcodeNeedsRegen ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-error">
-                  This event's passcode was created before this feature existed and can't be recovered — generate a
-                  new one to enable viewing it going forward.
-                </p>
+      {showSettings && viewerAccess.isOrganizer && (
+        <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
+          <div className="space-y-6">
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+              <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                <KeyRound size={16} />
+                Event Passcode
+              </h3>
+              <p className="text-xs text-text-muted mb-4">
+                Share this with people joining as regular participants. You can come back and view it here any time —
+                it isn't only shown once anymore.
+              </p>
+              {passcodeLoading ? (
+                <div className="skeleton h-11 w-full rounded-lg" />
+              ) : passcodeNeedsRegen ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-error">
+                    This event's passcode was created before this feature existed and can't be recovered — generate a
+                    new one to enable viewing it going forward.
+                  </p>
+                  <button
+                    onClick={handleRegeneratePasscode}
+                    disabled={regenerating}
+                    className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition w-fit"
+                  >
+                    {regenerating ? "Generating..." : "Generate New Passcode"}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center justify-between bg-surface-sunken border border-border rounded-lg px-4 py-2.5 font-mono text-lg tracking-[0.3em] text-primary">
+                    {passcodeVisible ? passcode : "••••••"}
+                    <button
+                      onClick={() => setPasscodeVisible((v) => !v)}
+                      className="text-text-muted hover:text-primary transition"
+                      aria-label={passcodeVisible ? "Hide passcode" : "Show passcode"}
+                    >
+                      {passcodeVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleCopyPasscode}
+                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-border hover:bg-surface-hover transition shrink-0"
+                    aria-label="Copy passcode"
+                  >
+                    {passcodeCopied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                  </button>
+                </div>
+              )}
+              {!passcodeLoading && !passcodeNeedsRegen && (
                 <button
                   onClick={handleRegeneratePasscode}
                   disabled={regenerating}
-                  className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition w-fit"
+                  className="text-xs text-text-muted hover:text-error transition mt-3"
                 >
-                  {regenerating ? "Generating..." : "Generate New Passcode"}
+                  {regenerating ? "Generating..." : "Generate a new passcode instead"}
                 </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center justify-between bg-surface-sunken border border-border rounded-lg px-4 py-2.5 font-mono text-lg tracking-[0.3em] text-primary">
-                  {passcodeVisible ? passcode : "••••••"}
-                  <button
-                    onClick={() => setPasscodeVisible((v) => !v)}
-                    className="text-text-muted hover:text-primary transition"
-                    aria-label={passcodeVisible ? "Hide passcode" : "Show passcode"}
-                  >
-                    {passcodeVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+              )}
+            </div>
+
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+              <h3 className="font-medium mb-1">Participant QR Code</h3>
+              <p className="text-xs text-text-muted mb-4">Anyone who scans this joins as a regular participant.</p>
+              {!joinQr ? (
+                <button onClick={loadQr} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm">
+                  Generate QR
+                </button>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="bg-white p-4 rounded-lg">
+                    <QRCodeSVG value={joinQr.joinUrl} size={160} />
+                  </div>
+                  <p className="text-xs text-text-muted break-all">{joinQr.joinUrl}</p>
                 </div>
+              )}
+            </div>
+
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+              <h3 className="font-medium mb-1 text-primary">Photographer QR Code</h3>
+              <p className="text-xs text-text-muted mb-4">
+                A separate code — only share this with your official photographers. Scanning it assigns them as a
+                photographer for this event (in addition to the organizer adding them by email in the Photographers
+                tab).
+              </p>
+              {!photographerJoinQr ? (
                 <button
-                  onClick={handleCopyPasscode}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-border hover:bg-surface-hover transition shrink-0"
-                  aria-label="Copy passcode"
+                  onClick={loadPhotographerQr}
+                  className="bg-accent hover:bg-accent/90 text-on-accent font-medium px-4 py-2 rounded-lg text-sm"
                 >
-                  {passcodeCopied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                  Generate Photographer QR
                 </button>
-              </div>
-            )}
-            {!passcodeLoading && !passcodeNeedsRegen && (
-              <button
-                onClick={handleRegeneratePasscode}
-                disabled={regenerating}
-                className="text-xs text-text-muted hover:text-error transition mt-3"
-              >
-                {regenerating ? "Generating..." : "Generate a new passcode instead"}
-              </button>
-            )}
-          </div>
-
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-            <h3 className="font-medium mb-1">Participant QR Code</h3>
-            <p className="text-xs text-text-muted mb-4">Anyone who scans this joins as a regular participant.</p>
-            {!joinQr ? (
-              <button onClick={loadQr} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm">
-                Generate QR
-              </button>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
-                <div className="bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={joinQr.joinUrl} size={160} />
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="bg-white p-4 rounded-lg">
+                    <QRCodeSVG value={photographerJoinQr.joinUrl} size={160} />
+                  </div>
+                  <p className="text-xs text-text-muted break-all">{photographerJoinQr.joinUrl}</p>
                 </div>
-                <p className="text-xs text-text-muted break-all">{joinQr.joinUrl}</p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-            <h3 className="font-medium mb-1 text-primary">Photographer QR Code</h3>
-            <p className="text-xs text-text-muted mb-4">
-              A separate code — only share this with your official photographers. Scanning it assigns them as a
-              photographer for this event (in addition to the organizer adding them by email in the Photographers
-              tab).
-            </p>
-            {!photographerJoinQr ? (
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+              <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                <CalendarClock size={16} />
+                Extend Event Duration
+              </h3>
+              <p className="text-xs text-text-muted mb-4">
+                Currently expires {new Date(event.expiryDate).toLocaleString()}. Pushing this into the future
+                automatically re-activates the event if it had already expired.
+              </p>
+              <form onSubmit={handleExtend} className="flex flex-col gap-3">
+                <input
+                  type="datetime-local"
+                  required
+                  min={nowLocalInput()}
+                  className="px-3 py-2 rounded-lg bg-surface-sunken border border-border focus:border-primary outline-none text-sm"
+                  value={newExpiryDate}
+                  onChange={(e) => setNewExpiryDate(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={extending}
+                  className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
+                >
+                  {extending ? "Extending..." : "Extend Event"}
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+              <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                <RefreshCw size={16} />
+                Sync with Cloudinary
+              </h3>
+              <p className="text-xs text-text-muted mb-4">
+                If a photo was deleted directly in your Cloudinary dashboard instead of through SnapShare, it can get
+                stuck here pointing at a dead file. Run this to clean those up.
+              </p>
               <button
-                onClick={loadPhotographerQr}
-                className="bg-accent hover:bg-accent/90 text-on-accent font-medium px-4 py-2 rounded-lg text-sm"
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-1.5 bg-surface-hover hover:bg-secondary/40 disabled:opacity-50 text-primary px-4 py-2 rounded-lg text-sm transition"
               >
-                Generate Photographer QR
+                <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+                {syncing ? "Checking..." : "Sync Now"}
               </button>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
-                <div className="bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={photographerJoinQr.joinUrl} size={160} />
-                </div>
-                <p className="text-xs text-text-muted break-all">{photographerJoinQr.joinUrl}</p>
-              </div>
-            )}
-          </div>
+            </div>
 
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-            <h3 className="font-medium mb-1 flex items-center gap-1.5">
-              <CalendarClock size={16} />
-              Extend Event Duration
-            </h3>
-            <p className="text-xs text-text-muted mb-4">
-              Currently expires {new Date(event.expiryDate).toLocaleString()}. Pushing this into the future
-              automatically re-activates the event if it had already expired.
-            </p>
-            <form onSubmit={handleExtend} className="flex flex-col gap-3">
-              <input
-                type="datetime-local"
-                required
-                className="px-3 py-2 rounded-lg bg-surface-sunken border border-border focus:border-primary outline-none text-sm"
-                value={newExpiryDate}
-                onChange={(e) => setNewExpiryDate(e.target.value)}
-              />
+            <div className="bg-error/5 border border-error/30 rounded-xl p-6">
+              <h3 className="font-medium mb-1 text-error flex items-center gap-1.5">
+                <Trash2 size={16} />
+                Danger Zone
+              </h3>
+              <p className="text-xs text-text-muted mb-4">
+                Permanently deletes this event, all its photos, participant records, and photographer assignments.
+                This cannot be undone.
+              </p>
               <button
-                type="submit"
-                disabled={extending}
-                className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-error hover:bg-error/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
               >
-                {extending ? "Extending..." : "Extend Event"}
+                {deleting ? "Deleting..." : "Delete Event"}
               </button>
-            </form>
+            </div>
           </div>
-
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-            <h3 className="font-medium mb-1 flex items-center gap-1.5">
-              <RefreshCw size={16} />
-              Sync with Cloudinary
-            </h3>
-            <p className="text-xs text-text-muted mb-4">
-              If a photo was deleted directly in your Cloudinary dashboard instead of through SnapShare, it can get
-              stuck here pointing at a dead file. Run this to clean those up.
-            </p>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-1.5 bg-surface-hover hover:bg-secondary/40 disabled:opacity-50 text-primary px-4 py-2 rounded-lg text-sm transition"
-            >
-              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Checking..." : "Sync Now"}
-            </button>
-          </div>
-
-          <div className="bg-error/5 border border-error/30 rounded-xl p-6">
-            <h3 className="font-medium mb-1 text-error flex items-center gap-1.5">
-              <Trash2 size={16} />
-              Danger Zone
-            </h3>
-            <p className="text-xs text-text-muted mb-4">
-              Permanently deletes this event, all its photos, participant records, and photographer assignments.
-              This cannot be undone.
-            </p>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-error hover:bg-error/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
-            >
-              {deleting ? "Deleting..." : "Delete Event"}
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import asyncHandler from "express-async-handler";
 import { EventPhotographer, User } from "../models/index.js";
 import { AppError } from "../utils/AppError.js";
-import { maskEmail } from "../utils/maskEmail.js";
+
 
 export const addPhotographer = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -40,12 +40,7 @@ export const listPhotographers = asyncHandler(async (req, res) => {
     "userId",
     "name email avatarUrl"
   );
-  const masked = photographers.map((p) => {
-    const obj = p.toObject();
-    if (obj.userId?.email) obj.userId.email = maskEmail(obj.userId.email);
-    return obj;
-  });
-  res.status(200).json({ success: true, data: { photographers: masked } });
+  res.status(200).json({ success: true, data: { photographers } });
 });
 
 export const setPhotographerPermission = asyncHandler(async (req, res) => {

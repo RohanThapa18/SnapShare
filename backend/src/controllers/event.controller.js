@@ -9,7 +9,7 @@ import { maskEmail } from "../utils/maskEmail.js";
 import { AppError } from "../utils/AppError.js";
 import { encryptPasscode, decryptPasscode } from "../utils/passcodeCipher.js";
 import { EVENT_STATUS, ALBUM_TYPE } from "../constants/enums.js";
-
+import { expireOverdueEvents } from "../utils/expireOverdueEvents.js";
 const PASSCODE_SALT_ROUNDS = 10;
 
 const generatePasscode = () => {
@@ -59,6 +59,7 @@ export const createEvent = asyncHandler(async (req, res) => {
 });
 
 export const getEvent = asyncHandler(async (req, res) => {
+  await expireOverdueEvents();
   const event = await Event.findById(req.params.id);
   if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
 
@@ -83,6 +84,7 @@ export const getEvent = asyncHandler(async (req, res) => {
 });
 
 export const listMyEvents = asyncHandler(async (req, res) => {
+  await expireOverdueEvents();
   // Events the user organizes, is assigned to as photographer, or has joined
   const [organized, photographing, joined] = await Promise.all([
     Event.find({ organizerId: req.user.id }).sort({ createdAt: -1 }),
@@ -107,19 +109,21 @@ export const updateEvent = asyncHandler(async (req, res) => {
   });
 
   if (updates.expiryDate) {
-    const existing = req.event || (await Event.findById(req.params.id).select("date status"));
+    const existing = await Event.findById(req.params.id).select("date status");
     if (!existing) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
 
     const newExpiry = new Date(updates.expiryDate);
     const eventDate = updates.date ? new Date(updates.date) : existing.date;
 
+    if (newExpiry <= new Date()) {
+      throw new AppError("Expiry date must be in the future", 400, "INVALID_EXPIRY");
+    }
     if (newExpiry <= eventDate) {
       throw new AppError("Expiry date must be after the event date", 400, "INVALID_EXPIRY");
     }
 
-    // Extending the expiry date into the future automatically "un-expires"
-    // the event — the organizer shouldn't have to separately flip status.
-    if (newExpiry > new Date() && existing.status === EVENT_STATUS.EXPIRED) {
+    // A future expiry re-activates an event that had already expired.
+    if (existing.status === EVENT_STATUS.EXPIRED) {
       updates.status = EVENT_STATUS.ACTIVE;
     }
   }
@@ -139,7 +143,7 @@ export const deleteEvent = asyncHandler(async (req, res) => {
   // handled by photoService when photos are deleted individually — for a
   // full event delete we also remove Cloudinary assets here.
   const photos = await Photo.find({ eventId }).select("cloudinaryPublicId");
-  await Promise.all(photos.map((p) => deleteCloudinaryAsset(p.cloudinaryPublicId).catch(() => {})));
+  await Promise.all(photos.map((p) => deleteCloudinaryAsset(p.cloudinaryPublicId).catch(() => { })));
 
   await Promise.all([
     Photo.deleteMany({ eventId }),
@@ -241,22 +245,22 @@ export const leaveEvent = asyncHandler(async (req, res) => {
 export const getParticipants = asyncHandler(async (req, res) => {
   const { search = "", page = 1, limit = 20 } = req.query;
 
+  // Only the organizer gets email addresses. For everyone else the field
+  // is never even loaded from the database.
+  const event = await Event.findById(req.params.id).select("organizerId");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+  const isOrganizer = event.organizerId.toString() === req.user.id;
+
   const participants = await EventParticipant.find({ eventId: req.params.id })
     .populate({
       path: "userId",
-      select: "name email avatarUrl",
+      select: isOrganizer ? "name email avatarUrl" : "name avatarUrl",
       match: search ? { name: { $regex: search, $options: "i" } } : {},
     })
     .skip((page - 1) * limit)
     .limit(Number(limit));
 
-  const filtered = participants
-    .filter((p) => p.userId) // drop non-matching populate results
-    .map((p) => {
-      const obj = p.toObject();
-      if (obj.userId?.email) obj.userId.email = maskEmail(obj.userId.email);
-      return obj;
-    });
+  const filtered = participants.filter((p) => p.userId).map((p) => p.toObject());
 
   const total = await EventParticipant.countDocuments({ eventId: req.params.id });
 

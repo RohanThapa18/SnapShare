@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import * as eventService from "../services/eventService";
 
-export default function PhotographersPanel({ eventId }) {
+export default function PhotographersPanel({ eventId, isOrganizer }) {
   const [photographers, setPhotographers] = useState([]);
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
@@ -69,20 +69,32 @@ export default function PhotographersPanel({ eventId }) {
               <p className="text-xs text-text-muted">{p.userId?.email}</p>
             </div>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 text-xs text-text-muted">
-                <input
-                  type="checkbox"
-                  checked={p.canUpload}
-                  onChange={() => handleTogglePermission(p.userId?._id, p.canUpload)}
-                />
-                Can upload
-              </label>
-              <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
-                <X size={16} />
-              </button>
+              {isOrganizer ? (
+                <>
+                  <label className="flex items-center gap-1 text-xs text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={p.canUpload}
+                      onChange={() => handleTogglePermission(p.userId?._id, p.canUpload)}
+                    />
+                    Can upload
+                  </label>
+                  <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
+                    <X size={16} />
+                  </button>
+                </>
+              ) : (
+                <span className="text-xs text-text-muted">{p.canUpload ? "Can upload" : "View only"}</span>
+              )}
             </div>
           </div>
         ))}
+
+        {isOrganizer && (
+          <form onSubmit={handleAdd} className="flex gap-2 mb-6">
+            {/* ...unchanged... */}
+          </form>
+        )}
         {photographers.length === 0 && (
           <p className="text-text-muted text-sm py-6 text-center">No photographers assigned yet.</p>
         )}

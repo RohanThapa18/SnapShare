@@ -2,7 +2,7 @@ import { Router } from "express";
 import * as eventController from "../controllers/event.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireActiveEvent } from "../middleware/eventStatus.js";
-import { requireEventOwner } from "../middleware/membership.js";
+import { requireEventOwner, requireEventParticipant } from "../middleware/membership.js";
 import { validate } from "../middleware/validate.js";
 import {
   createEventSchema,
@@ -36,6 +36,9 @@ router.post("/:id/passcode/regenerate", requireEventOwner, eventController.regen
 
 router.put("/:id", requireEventOwner, validate(updateEventSchema), eventController.updateEvent);
 router.delete("/:id", requireEventOwner, eventController.deleteEvent);
+
+router.get("/:id/participants", requireEventParticipant, eventController.getParticipants);
+router.delete("/:id/participants/:userId", requireEventOwner, eventController.removeParticipant);
 
 router.post("/:id/join", requireActiveEvent, validate(joinEventSchema), eventController.joinEvent);
 router.post(

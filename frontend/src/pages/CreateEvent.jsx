@@ -5,6 +5,7 @@ import { Copy, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import * as eventService from "../services/eventService";
 import BackButton from "../components/BackButton";
+import { nowLocalInput } from "../utils/datetime";
 
 function CopyField({ label, value }) {
   const [copied, setCopied] = useState(false);
@@ -40,7 +41,11 @@ export default function CreateEvent() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await eventService.createEvent(form);
+      const res = await eventService.createEvent({
+  ...form,
+  date: new Date(form.date).toISOString(),
+  expiryDate: new Date(form.expiryDate).toISOString(),
+});
       setCreatedEvent(res.data.data.event);
       setPasscode(res.data.data.passcode);
       toast.success("Event created!");
@@ -142,6 +147,7 @@ export default function CreateEvent() {
             <input
               type="datetime-local"
               required
+              min={form.date && form.date > nowLocalInput() ? form.date : nowLocalInput()}
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-border focus:border-primary outline-none"
               value={form.expiryDate}
               onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}

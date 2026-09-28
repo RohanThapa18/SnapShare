@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react";
 import toast from "react-hot-toast";
 import * as eventService from "../services/eventService";
 
-export default function ParticipantsPanel({ eventId }) {
+export default function ParticipantsPanel({ eventId, isOrganizer }) {
   const [participants, setParticipants] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -48,13 +48,19 @@ export default function ParticipantsPanel({ eventId }) {
           <div key={p._id} className="flex items-center justify-between py-3">
             <div>
               <p className="text-sm">{p.userId?.name}</p>
-              <p className="text-xs text-text-muted">{p.userId?.email}</p>
+              {p.userId?.email && <p className="text-xs text-text-muted">{p.userId.email}</p>}
             </div>
             <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
               <X size={16} />
             </button>
           </div>
         ))}
+
+        {isOrganizer && (
+          <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
+            <X size={16} />
+          </button>
+        )}
         {participants.length === 0 && <p className="text-text-muted text-sm py-6 text-center">No participants found.</p>}
       </div>
     </div>
