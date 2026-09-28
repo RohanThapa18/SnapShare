@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
+
 import Navbar from "./components/Navbar";
+
 import LikedFavourites from "./pages/LikedFavourites";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -20,15 +23,25 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ style: { background: "#1E293B", color: "#fff" } }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: "#1E293B",
+              color: "#fff",
+            },
+          }}
+        />
+
         <Navbar />
+
         <Routes>
+          {/* Public pages */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* QR deep links: eventId + token both embedded in the URL,
-              so the app can resolve which event before joining. */}
+          {/* QR deep links */}
           <Route
             path="/join/:eventId/:joinToken"
             element={
@@ -37,6 +50,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/join-photographer/:eventId/:photographerToken"
             element={
@@ -46,18 +60,73 @@ function App() {
             }
           />
 
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          {/* Profile */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Single unified dashboard — no more role-specific routes.
-              Create/Join/Join-as-Photographer all live here now,
-              Google-Classroom style. */}
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          {/* Dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
-          <Route path="/events/create" element={<ProtectedRoute><CreateEvent /></ProtectedRoute>} />
-          <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+          {/* Create Event */}
+          <Route
+            path="/events/create"
+            element={
+              <ProtectedRoute>
+                <CreateEvent />
+              </ProtectedRoute>
+            }
+          />
 
-          <Route path="/purchases" element={<ProtectedRoute><PurchaseHistory /></ProtectedRoute>} />
-          <Route path="/liked" element={<ProtectedRoute><LikedFavourites /></ProtectedRoute>} />
+          {/* Event Details
+              IMPORTANT:
+              Event URLs now use slug instead of MongoDB _id.
+
+              Example:
+              /events/freshers
+              /events/freshers-2026
+          */}
+          <Route
+            path="/events/:slug"
+            element={
+              <ProtectedRoute>
+                <EventDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Other pages */}
+          <Route
+            path="/purchases"
+            element={
+              <ProtectedRoute>
+                <PurchaseHistory />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/liked"
+            element={
+              <ProtectedRoute>
+                <LikedFavourites />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -44,7 +44,7 @@ export default function Dashboard() {
   const renderCard = (event) => (
     <Link
       key={event._id}
-      to={`/events/${event._id}`}
+      to={`/events/${event.slug}`}
       className="group block bg-surface border border-border rounded-xl overflow-hidden hover:border-primary hover:shadow-card transition-all duration-200"
     >
       <div className="aspect-video bg-surface-sunken flex items-center justify-center text-text-muted text-sm overflow-hidden">
