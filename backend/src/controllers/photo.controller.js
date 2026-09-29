@@ -20,7 +20,8 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     eventId,
     folder: album.toLowerCase(),
   });
-
+  const normalizedPrice = Number(price);
+  const actuallyPaid = Boolean(isPaid) && Number.isFinite(normalizedPrice) && normalizedPrice > 0;
   const photo = await Photo.create({
     eventId,
     uploaderId,
@@ -31,8 +32,8 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     width: processed.width,
     height: processed.height,
     fileSizeBytes: processed.sizeBytes,
-    isPaid: Boolean(isPaid),
-    price: isPaid ? Number(price) || 0 : 0,
+    isPaid: actuallyPaid,
+    price: actuallyPaid ? normalizedPrice : 0,
   });
 
   await enqueuePhotoForAiProcessing(photo._id.toString());
@@ -179,8 +180,18 @@ export const updatePhotoMeta = asyncHandler(async (req, res) => {
 
   // Only official-album photographer uploads can carry a price
   if (photo.album === ALBUM_TYPE.OFFICIAL) {
-    if (req.body.isPaid !== undefined) photo.isPaid = Boolean(req.body.isPaid);
-    if (req.body.price !== undefined) photo.price = Number(req.body.price) || 0;
+   if (req.body.isPaid !== undefined || req.body.price !== undefined) {
+  const requestedPaid = Boolean(req.body.isPaid);
+  const requestedPrice =
+    req.body.price === undefined ? Number(photo.price) : Number(req.body.price);
+
+  const normalizedPrice = Number.isFinite(requestedPrice)
+    ? requestedPrice
+    : 0;
+
+  photo.isPaid = requestedPaid && normalizedPrice > 0;
+  photo.price = photo.isPaid ? normalizedPrice : 0;
+}
   }
 
   await photo.save();
@@ -196,12 +207,20 @@ export const downloadPhoto = asyncHandler(async (req, res) => {
   const photo = await Photo.findById(req.params.photoId);
   if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
 
-  if (photo.isPaid) {
-    const purchase = await Purchase.findOne({ userId: req.user.id, photoId: photo._id });
-    if (!purchase) {
-      throw new AppError("Purchase this photo to download the full-resolution version", 402, "NOT_PURCHASED");
-    }
+  if (photo.isPaid && Number(photo.price) > 0) {
+  const purchase = await Purchase.findOne({
+    userId: req.user.id,
+    photoId: photo._id,
+  });
+
+  if (!purchase) {
+    throw new AppError(
+      "Purchase this photo to download the full-resolution version",
+      402,
+      "NOT_PURCHASED"
+    );
   }
+}
 
   const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId));
   if (!response.ok) {

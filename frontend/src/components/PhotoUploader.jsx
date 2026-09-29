@@ -151,7 +151,7 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
           {isPaid && (
             <input
               type="number"
-              min="1"
+              min="0"
               placeholder="Price (₹) per photo"
               className="px-3 py-1.5 rounded-control bg-surface-sunken border border-border text-sm w-40 focus:border-primary outline-none"
               value={price}

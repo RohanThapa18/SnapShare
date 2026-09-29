@@ -47,7 +47,7 @@ export default function PhotoCard({
         </div>
       </button>
 
-      {photo.isPaid && !photo.purchased && (
+      {photo.isPaid && Number(photo.price) > 0 && !photo.purchased && (
         <div className="absolute top-2 left-2 bg-primary/85 backdrop-blur text-xs px-2 py-1 rounded-full flex items-center gap-1 text-white">
           <Lock size={12} /> ₹{photo.price}
         </div>
@@ -83,7 +83,7 @@ export default function PhotoCard({
           )}
         </div>
 
-        {photo.isPaid && !photo.purchased ? (
+        {photo.isPaid && Number(photo.price) > 0 && !photo.purchased ? (
           <button
             onClick={() => onBuy?.(photo)}
             className="text-xs bg-accent text-on-accent font-medium px-2 py-1 rounded-full"
