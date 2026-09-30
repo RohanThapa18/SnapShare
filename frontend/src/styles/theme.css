@@ -260,3 +260,60 @@ button:disabled {
     scroll-behavior: auto !important;
   }
 }
+/* =========================================================
+   Landing Page Animations
+   ========================================================= */
+
+@keyframes snapshare-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-9deg);
+  }
+
+  50% {
+    transform: translateY(-8px) rotate(-8deg);
+  }
+}
+
+@keyframes snapshare-float-delayed {
+  0%,
+  100% {
+    transform: translateY(0) rotate(7deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(8deg);
+  }
+}
+
+@keyframes snapshare-card-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 18px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.animate-float-soft {
+  animation: snapshare-float 5s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: snapshare-float-delayed 6s ease-in-out 0.8s infinite;
+}
+
+.animate-card-enter {
+  animation: snapshare-card-enter 0.7s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-soft,
+  .animate-float-delayed,
+  .animate-card-enter {
+    animation: none;
+  }
+}

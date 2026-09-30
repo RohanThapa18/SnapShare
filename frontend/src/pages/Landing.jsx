@@ -91,64 +91,37 @@ export default function Landing() {
   }
 
   return (
-    <div className="bg-background text-text overflow-hidden">
-
-      {/* =====================================================
-          HERO
-      ===================================================== */}
-
-      <section className="relative">
-
-        {/* Background decoration */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-        >
-          <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-accent/10 blur-3xl" />
-
-          <div className="absolute top-40 -left-40 w-[450px] h-[450px] rounded-full bg-secondary/70 blur-3xl" />
-        </div>
-
-
-        <div className="relative max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 pt-16 sm:pt-24 lg:pt-28 pb-20 lg:pb-28">
-
-          <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-14 lg:gap-20 items-center">
-
-
-            {/* ================= LEFT ================= */}
-
-            <div className="text-center lg:text-left animate-slide-up">
-
-              {/* Badge */}
-
-              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white border border-border shadow-sm mb-7">
-
-                <span className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
-                  <Sparkles
-                    size={13}
-                    className="text-accent-hover"
-                  />
-                </span>
-
-                <span className="text-xs sm:text-sm font-medium text-text">
-                  AI-powered event photography
-                </span>
-
-              </div>
-
-
-              {/* Heading */}
-
-              <h1 className="font-display text-5xl sm:text-6xl lg:text-[76px] font-medium tracking-tight leading-[0.98] text-text mb-7">
-
-                Your memories.
-
-                <br />
-
-                <span className="text-primary italic">
-                  Found in seconds.
-                </span>
-
+    <div>
+      {/* ---------- Hero ---------- */}
+      <section className="relative overflow-hidden min-h-[620px] flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-secondary/25 via-transparent to-transparent" aria-hidden="true" />
+        <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 relative">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="text-center md:text-left animate-slide-up">
+              <span
+  className="
+    inline-flex items-center gap-1.5
+    text-xs font-medium text-primary
+    bg-secondary/40
+    border border-secondary/40
+    px-3.5 py-1.5
+    rounded-full
+    mb-5
+    transition-all duration-300
+    hover:bg-secondary/60
+    hover:border-secondary
+    hover:shadow-sm
+    hover:-translate-y-0.5
+  "
+>
+  <Sparkles
+    size={13}
+    className="transition-transform duration-500 hover:rotate-12"
+  />
+  AI-powered event photography
+</span>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-medium text-primary leading-[1.1] mb-5">
+                Find your event photos <span className="italic">using your face.</span>
               </h1>
 
 
@@ -159,182 +132,76 @@ export default function Landing() {
                 Upload one selfie and let SnapShare's AI find every
                 memory you're in.
               </p>
-
-
-              {/* Buttons */}
-
-              <div className="flex flex-col sm:flex-row items-center lg:justify-start justify-center gap-3">
-
-                <Link
-                  to="/register"
-                  className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold shadow-card hover:-translate-y-0.5 transition-all"
-                >
-                  Find My Photos
-
-                  <ArrowRight
-                    size={18}
-                    className="group-hover:translate-x-1 transition-transform"
-                  />
-                </Link>
-
-
-                <Link
-                  to="/login"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-white border border-border hover:border-primary/30 hover:bg-surface-hover text-text font-semibold shadow-sm transition-all"
-                >
-                  Log In
-                </Link>
-
-              </div>
-
-
-              {/* Trust indicators */}
-
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 mt-8 text-xs text-text-muted">
-
-                <span className="inline-flex items-center gap-2">
-                  <Check size={14} className="text-success" />
-                  No app required
-                </span>
-
-                <span className="inline-flex items-center gap-2">
-                  <Check size={14} className="text-success" />
-                  Private searches
-                </span>
-
-                <span className="inline-flex items-center gap-2">
-                  <Check size={14} className="text-success" />
-                  Full-resolution photos
-                </span>
-
-              </div>
-
+              <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+              <Link
+                   to="/register"
+                  className="bg-primary hover:bg-primary-hover text-white px-7 py-3 rounded-control transition font-medium shadow-card"
+             >  
+                 Get Started
+             </Link>
+             <Link
+             to="/login"
+             className="bg-surface hover:bg-surface-hover border border-border text-primary px-7 py-3 rounded-control transition font-medium"
+              >
+              Log In
+              </Link>
+             </div>
             </div>
 
-
-            {/* ================= RIGHT / VISUAL ================= */}
-
-            <div
-              className="relative h-[420px] sm:h-[500px] hidden md:block"
-              aria-hidden="true"
-            >
-
-              {/* Decorative background card */}
-
-              <div className="absolute top-10 left-5 sm:left-12 w-56 h-72 rounded-[28px] bg-secondary shadow-card rotate-[-9deg]" />
-
-              <div className="absolute top-2 right-5 sm:right-12 w-56 h-72 rounded-[28px] bg-accent/30 shadow-card rotate-[8deg]" />
-
-
-              {/* Main photo-style card */}
-
-              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[270px] sm:w-[310px] h-[370px] sm:h-[410px] rounded-[30px] bg-white border border-border shadow-elevated overflow-hidden rotate-[-1deg]">
-
-                {/* Fake photo area */}
-
-                <div className="h-[67%] bg-gradient-to-br from-primary/20 via-secondary to-accent/20 relative overflow-hidden">
-
-                  <div className="absolute inset-0 flex items-center justify-center">
-
-                    <div className="w-32 h-40 rounded-[45%] bg-white/60 backdrop-blur-sm shadow-sm flex items-center justify-center">
-
-                      <Camera
-                        size={38}
-                        className="text-primary/70"
-                      />
-
-                    </div>
-
-                  </div>
-
-
-                  {/* Decorative circles */}
-
-                  <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-accent/30" />
-
-                  <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-primary/10" />
-
-                </div>
-
-
-                {/* Card information */}
-
-                <div className="p-5 bg-white">
-
-                  <div className="flex items-center justify-between mb-4">
-
-                    <div>
-                      <p className="text-sm font-semibold text-text">
-                        Event Gallery
-                      </p>
-
-                      <p className="text-xs text-text-muted mt-1">
-                        Wedding Celebration
-                      </p>
-                    </div>
-
-                    <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center">
-                      <Images
-                        size={17}
-                        className="text-primary"
-                      />
-                    </div>
-
-                  </div>
-
-
-                  {/* AI match */}
-
-                  <div className="rounded-xl bg-surface-sunken border border-border p-3 flex items-center gap-3">
-
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-
-                      <ScanFace
-                        size={19}
-                        className="text-primary"
-                      />
-
-                    </div>
-
-                    <div className="min-w-0">
-
-                      <p className="text-xs font-semibold text-primary">
-                        Match found
-                      </p>
-
-                      <p className="text-[11px] text-text-muted mt-0.5">
-                        128 photos · 96% confidence
-                      </p>
-
-                    </div>
-
-                    <div className="ml-auto w-7 h-7 rounded-full bg-success/10 flex items-center justify-center">
-
-                      <Check
-                        size={14}
-                        className="text-success"
-                      />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* Floating AI badge */}
-
-              <div className="absolute bottom-16 left-0 sm:left-4 bg-white border border-border rounded-2xl shadow-elevated p-3.5 flex items-center gap-3 animate-scale-in">
-
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-
-                  <ScanFace
-                    size={19}
-                    className="text-white"
-                  />
-
+            {/* Decorative photo-stack mockup — pure CSS, no stock imagery */}
+            <div className="relative h-72 sm:h-96 hidden md:block" aria-hidden="true">
+              <div
+  className="
+    absolute top-6 left-8
+    w-48 h-60
+    rounded-2xl
+    bg-secondary/60
+    shadow-card
+    rotate-[-9deg]
+    animate-float-soft
+    transition-transform duration-500
+    hover:scale-105
+  "
+/>
+              <div
+  className="
+    absolute top-2 right-6
+    w-48 h-60
+    rounded-2xl
+    bg-accent/70
+    shadow-card
+    rotate-[7deg]
+    animate-float-delayed
+    transition-transform duration-500
+    hover:scale-105
+  "
+/>
+              <div
+  className="
+    absolute top-10 left-1/2 -translate-x-1/2
+    w-52 h-64
+    rounded-2xl
+    bg-surface
+    border border-border
+    shadow-elevated
+    flex flex-col items-center justify-center gap-3
+    animate-card-enter
+    transition-transform duration-500
+    hover:-translate-y-2
+  "
+>
+                <div
+  className="
+    w-16 h-16
+    rounded-full
+    bg-primary/10
+    flex items-center justify-center
+    transition-all duration-500
+    hover:bg-primary/20
+    hover:scale-110
+  "
+>
+                  <ScanFace className="text-primary" size={30} />
                 </div>
 
                 <div>
@@ -454,89 +321,58 @@ export default function Landing() {
 
       </section>
 
-
-      {/* =====================================================
-          FEATURES
-      ===================================================== */}
-
-      <section className="bg-background">
-
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-20 sm:py-24">
-
-          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-14 items-start">
-
-            {/* Left */}
-
-            <div className="lg:sticky lg:top-28">
-
-              <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent-hover">
-
-                <Sparkles size={14} />
-
-                Built for real events
-
+      {/* ---------- How it works ---------- */}
+      <section className="max-w-5xl mx-auto px-6 py-16 sm:py-20">
+        <h2 className="font-display text-2xl sm:text-3xl text-primary text-center mb-2">How it works</h2>
+        <p className="text-text-muted text-center mb-12 max-w-lg mx-auto">
+          Three steps between you and every photo you're in.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-6">
+          {STEPS.map((step, i) => (
+            <div
+  key={step.title}
+  className="
+    group
+    relative
+    bg-surface
+    border border-border
+    rounded-card
+    p-6
+    shadow-sm
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+    hover:border-secondary
+  "
+>
+              <span
+  className="
+    absolute -top-3 -left-3
+    w-8 h-8
+    rounded-full
+    bg-primary
+    text-white
+    text-sm font-medium
+    flex items-center justify-center
+    shadow-card
+    border-4 border-background
+    transition-transform duration-300
+    group-hover:scale-110
+  "
+>
+                {i + 1}
               </span>
-
-              <h2 className="font-display text-3xl sm:text-4xl text-text mt-4 mb-5 leading-tight">
-
-                Everything you need to turn event photos into memories.
-
-              </h2>
-
-              <p className="text-text-muted leading-7 mb-7">
-
-                SnapShare brings photographers, organizers and guests
-                together around one simple photo experience.
-
-              </p>
-
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-hover"
-              >
-                Get started with SnapShare
-
-                <ArrowRight size={16} />
-
-              </Link>
-
-            </div>
-
-
-            {/* Right */}
-
-            <div className="grid sm:grid-cols-2 gap-4">
-
-              {FEATURES.map((feature) => {
-                const Icon = feature.icon;
-
-                return (
-                  <div
-                    key={feature.title}
-                    className="bg-white border border-border rounded-2xl p-6 hover:shadow-card hover:border-primary/20 transition-all"
-                  >
-
-                    <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center mb-5">
-
-                      <Icon
-                        size={20}
-                        className="text-primary"
-                      />
-
-                    </div>
-
-                    <h3 className="font-semibold text-text mb-2">
-                      {feature.title}
-                    </h3>
-
-                    <p className="text-sm leading-6 text-text-muted">
-                      {feature.description}
-                    </p>
-
-                  </div>
-                );
-              })}
-
+              <step.icon
+  className="
+    text-primary mb-3
+    transition-all duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
+              <h3 className="font-medium text-primary mb-1.5">{step.title}</h3>
+              <p className="text-sm text-text-muted">{step.description}</p>
             </div>
 
           </div>
@@ -545,42 +381,54 @@ export default function Landing() {
 
       </section>
 
-
-      {/* =====================================================
-          FOR ORGANIZERS / GUESTS
-      ===================================================== */}
-
-      <section className="bg-white border-y border-border">
-
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-20 sm:py-24">
-
-          <div className="text-center max-w-2xl mx-auto mb-14">
-
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-hover">
-              One platform
-            </span>
-
-            <h2 className="font-display text-3xl sm:text-4xl text-text mt-3">
-              Designed for everyone at the event.
-            </h2>
-
-          </div>
-
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Organizer */}
-
-            <div className="relative overflow-hidden rounded-3xl bg-primary p-8 sm:p-10 text-white">
-
-              <div className="absolute -top-20 -right-20 w-56 h-56 rounded-full bg-white/5" />
-
-              <div className="relative">
-
-                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-7">
-
-                  <UserPlus size={23} />
-
+      {/* ---------- Features ---------- */}
+      <section className="bg-surface/60 border-y border-border">
+        <div className="max-w-5xl mx-auto px-6 py-16 sm:py-20">
+          <h2 className="font-display text-2xl sm:text-3xl text-primary text-center mb-12">
+            Built for real events, not just galleries
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-6">
+            {FEATURES.map((f) => (
+              <div
+  key={f.title}
+  className="
+    group
+    flex gap-4
+    rounded-2xl
+    p-5
+    border border-transparent
+    transition-all duration-300
+    hover:bg-surface
+    hover:border-border
+    hover:shadow-card
+    hover:-translate-y-1
+  "
+>
+                <div
+  className="
+    w-11 h-11
+    shrink-0
+    rounded-xl
+    bg-secondary/40
+    flex items-center justify-center
+    transition-all duration-300
+    group-hover:bg-primary
+    group-hover:text-white
+    group-hover:scale-110
+  "
+>
+                  <f.icon
+  className="
+    text-primary
+    transition-colors duration-300
+    group-hover:text-white
+  "
+  size={20}
+/>
+                </div>
+                <div>
+                  <h3 className="font-medium text-primary mb-1">{f.title}</h3>
+                  <p className="text-sm text-text-muted">{f.description}</p>
                 </div>
 
                 <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-3">
@@ -682,41 +530,69 @@ export default function Landing() {
 
       </section>
 
-
-      {/* =====================================================
-          PRIVACY
-      ===================================================== */}
-
-      <section className="bg-background">
-
-        <div className="max-w-4xl mx-auto px-5 sm:px-6 lg:px-8 py-20 sm:py-24">
-
-          <div className="bg-white border border-border rounded-3xl p-8 sm:p-12 text-center shadow-sm">
-
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-
-              <ShieldCheck
-                size={27}
-                className="text-primary"
-              />
-
-            </div>
-
-
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-hover mb-3">
-              Privacy first
+      {/* ---------- Organizer / participant benefits ---------- */}
+      <section className="max-w-5xl mx-auto px-6 py-16 sm:py-20">
+        <div className="grid sm:grid-cols-2 gap-6">
+          <div
+  className="
+    group
+    bg-primary
+    text-white
+    rounded-card
+    p-8
+    shadow-card
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+  "
+>
+            <UserPlus
+  className="
+    mb-4
+    transition-transform duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
+            <h3 className="font-display text-xl mb-2">For organizers &amp; photographers</h3>
+            <p className="text-white/80 text-sm mb-4">
+              Create an event, share a QR code or passcode, and let guests find their own photos — no more fielding
+              "can you send me the ones with me in them" messages.
             </p>
-
-            <h2 className="font-display text-2xl sm:text-3xl text-text mb-4">
-              Your face belongs to you.
-            </h2>
-
-            <p className="text-text-muted text-sm sm:text-base leading-7 max-w-2xl mx-auto">
-              Selfies are processed in memory and discarded immediately.
-              They are not saved to disk or your database. Searches are
-              scoped to the event you've joined, while downloads are
-              validated by the server against your actual membership and
-              purchase records.
+            <ul className="text-sm text-white/80 space-y-1.5">
+              <li>• Separate official &amp; community albums</li>
+              <li>• Passcodes you can view again anytime, not just once</li>
+              <li>• Optional paid downloads for your official shots</li>
+            </ul>
+          </div>
+          <div
+  className="
+    group
+    bg-surface
+    border border-border
+    rounded-card
+    p-8
+    shadow-card
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+    hover:border-secondary
+  "
+>
+            <Camera
+  className="
+    mb-4 text-primary
+    transition-transform duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
+            <h3 className="font-display text-xl text-primary mb-2">For guests &amp; participants</h3>
+            <p className="text-text-muted text-sm mb-4">
+              Join with a code, upload one selfie, and get every photo you're in — official and candid — ready to
+              download in full resolution.
             </p>
 
 
@@ -745,30 +621,22 @@ export default function Landing() {
 
       </section>
 
-
-      {/* =====================================================
-          FINAL CTA
-      ===================================================== */}
-
-      <section className="bg-primary text-white">
-
-        <div className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-20 sm:py-24 text-center">
-
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-white/10 flex items-center justify-center mb-7">
-
-            <Camera size={25} />
-
-          </div>
-
-          <h2 className="font-display text-3xl sm:text-5xl leading-tight mb-5">
-            Your next event deserves
-            <br className="hidden sm:block" />
-            a better photo experience.
-          </h2>
-
-          <p className="text-white/70 max-w-xl mx-auto leading-7 mb-8">
-            Create your SnapShare account and start finding your
-            event memories without the endless scrolling.
+      {/* ---------- Trust / security ---------- */}
+      <section className="border-t border-border bg-secondary/5">
+       <div
+  className="
+    max-w-3xl
+    mx-auto
+    px-6 py-16
+    text-center
+  "
+>
+<ShieldCheck className="text-primary mx-auto mb-3" size={28} />
+          <h2 className="font-display text-xl text-primary mb-2">Privacy comes first</h2>
+          <p className="text-text-muted text-sm max-w-lg mx-auto">
+            Selfies are processed in memory and discarded immediately — never saved to disk or a database. Every
+            search is scoped to the single event you've joined, and every download is checked against your actual
+            purchase and membership records on the server, not just hidden in the interface.
           </p>
 
 
@@ -786,53 +654,35 @@ export default function Landing() {
 
       </section>
 
-
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
-
-      <footer className="bg-white border-t border-border">
-
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-8">
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-primary font-semibold"
-            >
-
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-
-                <Camera
-                  size={16}
-                  className="text-white"
-                />
-
-              </div>
-
-              SnapShare
-
-            </Link>
-
-
-            <p className="text-xs text-text-muted text-center">
-              © {new Date().getFullYear()} SnapShare. Built for events,
-              not feeds.
-            </p>
-
-
-            <div className="flex items-center gap-4 text-xs text-text-muted">
-
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck size={13} />
-                Privacy focused
-              </span>
-
-            </div>
-
-          </div>
-
+      {/* ---------- Footer ---------- */}
+      <footer className="border-t border-border bg-secondary/5">
+  <div
+    className="
+      max-w-6xl
+      mx-auto
+      px-6 py-10
+      flex flex-col
+      sm:flex-row
+      items-center
+      justify-between
+      gap-4
+      text-sm
+      text-text-muted
+    "
+  >
+         <span
+  className="
+    flex items-center gap-2
+    text-primary
+    font-semibold
+    transition-all duration-300
+    hover:-translate-y-0.5
+  "
+>
+  <Camera size={16} />
+  SnapShare
+</span>
+          <span>© {new Date().getFullYear()} SnapShare. Built for events, not feeds.</span>
         </div>
 
       </footer>
