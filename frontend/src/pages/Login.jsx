@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Mail, Lock, LogIn, Eye, EyeOff, Camera } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { Camera } from "lucide-react";
+
 
 export default function Login() {
   const { login } = useAuth();
