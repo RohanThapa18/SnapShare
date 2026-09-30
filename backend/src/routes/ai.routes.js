@@ -2,8 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import * as aiController from "../controllers/ai.controller.js";
 import { requireAuth } from "../middleware/auth.js";
-import { uploadSelfie } from "../middleware/upload.js";
-
+import { uploadSelfies } from "../middleware/upload.js";
 // Mounted at /api/events/:id/find-my-photos
 const router = Router({ mergeParams: true });
 
@@ -16,6 +15,5 @@ const findMyPhotosLimiter = rateLimit({
   message: { success: false, message: "Too many search attempts, please wait a few minutes", code: "RATE_LIMITED" },
 });
 
-router.post("/", requireAuth, findMyPhotosLimiter, uploadSelfie, aiController.findMyPhotos);
-
+router.post("/", requireAuth, findMyPhotosLimiter, uploadSelfies, aiController.findMyPhotos);
 export default router;

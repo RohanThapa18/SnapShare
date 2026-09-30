@@ -11,7 +11,7 @@ import { PhotoGridSkeleton } from "./Skeleton";
 
 /**
  * The "Find My Photos" experience end to end:
- *   selfie -> processing animation -> "Your photos are ready" gallery
+ *   selfie(s) -> processing animation -> "Your photos are ready" gallery
  *   -> open any photo full-screen -> download one, or all as a ZIP.
  *
  * On mount it loads the user's persisted collection (if they've
@@ -19,8 +19,8 @@ import { PhotoGridSkeleton } from "./Skeleton";
  * every time they revisit the tab.
  */
 export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, onFavourite, likedIds, favouritedIds }) {
-  const [selfie, setSelfie] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [selfies, setSelfies] = useState([]);
+  const [previews, setPreviews] = useState([]);
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState(null);
   const [loadingCollection, setLoadingCollection] = useState(true);
@@ -44,16 +44,27 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
   }, [eventId]);
 
   const handleSelect = (file) => {
-    setSelfie(file);
-    setPreview(URL.createObjectURL(file));
+    if (selfies.length >= 3) return;
+    setSelfies((prev) => [...prev, file]);
+    setPreviews((prev) => [...prev, URL.createObjectURL(file)]);
+  };
+
+  const handleRemoveSelfie = (index) => {
+    setSelfies((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const resetSelfies = () => {
+    setSelfies([]);
+    setPreviews([]);
   };
 
   const handleSearch = async () => {
-    if (!selfie) return;
+    if (selfies.length === 0) return;
     setSearching(true);
     try {
       const formData = new FormData();
-      formData.append("selfie", selfie);
+      selfies.forEach((file) => formData.append("selfies", file));
       const res = await photoService.findMyPhotos(eventId, formData);
       setResults(res.data.data.photos);
       if (res.data.data.photos.length === 0) {
@@ -65,8 +76,7 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
       toast.error(err.response?.data?.message || "Search failed");
     } finally {
       setSearching(false);
-      setSelfie(null);
-      setPreview(null);
+      resetSelfies();
     }
   };
 
@@ -112,47 +122,46 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
       ) : showPrompt ? (
         <div className="animate-fade-in">
           <p className="text-sm text-text-muted mb-6 max-w-md">
-            Upload a clear, front-facing selfie and we'll find every photo you appear in across this event. Your
-            selfie is used only to search — it's never stored.
+            Upload 1-3 clear, front-facing selfies and we'll find every photo you appear in across this event. Your
+            selfies are used only to search — they're never stored.
           </p>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <label
-              className={`relative flex items-center justify-center w-24 h-24 rounded-full border-2 border-dashed cursor-pointer transition overflow-hidden shrink-0 ${
-                preview ? "border-transparent" : "border-border hover:border-primary bg-surface-hover"
-              }`}
-            >
-              {preview ? (
-                <img src={preview} alt="Selfie preview" className="w-full h-full object-cover" />
-              ) : (
-                <UserRound className="text-text-muted" size={28} />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              {previews.map((src, i) => (
+                <div key={i} className="relative w-20 h-20 rounded-full overflow-hidden shrink-0">
+                  <img src={src} alt={`Selfie ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => handleRemoveSelfie(i)}
+                    className="absolute inset-0 bg-primary/60 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {selfies.length < 3 && (
+                <label className="flex items-center justify-center w-20 h-20 rounded-full border-2 border-dashed border-border hover:border-primary bg-surface-hover cursor-pointer transition shrink-0">
+                  <UserRound className="text-text-muted" size={24} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => e.target.files[0] && handleSelect(e.target.files[0])}
+                  />
+                </label>
               )}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => e.target.files[0] && handleSelect(e.target.files[0])}
-              />
-            </label>
-
-            <div className="flex flex-col gap-2">
-              <label className="inline-block bg-surface border border-border hover:bg-surface-hover px-4 py-2 rounded-control cursor-pointer transition text-sm w-fit shadow-sm">
-                {preview ? "Choose a different selfie" : "Choose Selfie"}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => e.target.files[0] && handleSelect(e.target.files[0])}
-                />
-              </label>
-              <button
-                onClick={handleSearch}
-                disabled={!preview}
-                className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-white px-4 py-2 rounded-control transition text-sm font-medium w-fit shadow-sm"
-              >
-                Find My Photos
-              </button>
             </div>
+            <p className="text-xs text-text-muted -mt-1">
+              Add up to 3 selfies from slightly different angles for a more accurate match ({selfies.length}/3).
+            </p>
+
+            <button
+              onClick={handleSearch}
+              disabled={selfies.length === 0 || searching}
+              className="bg-primary text-white px-5 py-2 rounded-control hover:bg-primary-hover transition disabled:opacity-50 w-fit"
+            >
+              Find My Photos
+            </button>
           </div>
         </div>
       ) : null}
@@ -160,8 +169,8 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
       {showProcessing && (
         <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
           <div className="relative w-20 h-20 mb-5">
-            {preview && (
-              <img src={preview} alt="" className="w-20 h-20 rounded-full object-cover animate-pop" />
+            {previews[0] && (
+              <img src={previews[0]} alt="" className="w-20 h-20 rounded-full object-cover animate-pop" />
             )}
             <div className="absolute inset-0 rounded-full border-2 border-secondary border-t-primary animate-spin" />
           </div>
@@ -187,8 +196,7 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
               <button
                 onClick={() => {
                   setResults(null);
-                  setPreview(null);
-                  setSelfie(null);
+                  resetSelfies();
                 }}
                 className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary border border-border px-3 py-2 rounded-control transition"
               >
@@ -221,29 +229,61 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
               description="We couldn't find your face in this event's photos. Try a clearer, front-facing selfie with good lighting."
             />
           ) : (
-            <div className="columns-2 sm:columns-3 photo-masonry">
-              {results.map((photo, i) => (
-                <PhotoCard
-                  key={photo._id}
-                  photo={photo}
-                  onOpen={() => setLightboxIndex(i)}
-                  onDownload={handleDownloadOne}
-                  onBuy={onBuy}
-                  onLike={onLike}
-                  onFavourite={onFavourite}
-                  liked={likedIds?.has(photo._id)}
-                  favourited={favouritedIds?.has(photo._id)}
-                  downloading={downloadingId === photo._id}
-                />
-              ))}
-            </div>
+            (() => {
+              const highMatches = results.filter((p) => p.tier !== "possible");
+              const possibleMatches = results.filter((p) => p.tier === "possible");
+              return (
+                <>
+                  <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
+                    {highMatches.map((photo, i) => (
+                      <PhotoCard
+                        key={photo._id}
+                        photo={photo}
+                        onOpen={() => setLightboxIndex(i)}
+                        onLike={onLike}
+                        onFavourite={onFavourite}
+                        onDownload={handleDownloadOne}
+                        onBuy={onBuy}
+                        liked={likedIds?.has(photo._id)}
+                        favourited={favouritedIds?.has(photo._id)}
+                        downloading={downloadingId === photo._id}
+                      />
+                    ))}
+                  </div>
+
+                  {possibleMatches.length > 0 && (
+                    <div className="mt-8">
+                      <p className="text-sm text-text-muted mb-3">
+                        Possible matches — lower confidence, take a look and confirm it's you:
+                      </p>
+                      <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
+                        {possibleMatches.map((photo, i) => (
+                          <PhotoCard
+                            key={photo._id}
+                            photo={photo}
+                            onOpen={() => setLightboxIndex(highMatches.length + i)}
+                            onLike={onLike}
+                            onFavourite={onFavourite}
+                            onDownload={handleDownloadOne}
+                            onBuy={onBuy}
+                            liked={likedIds?.has(photo._id)}
+                            favourited={favouritedIds?.has(photo._id)}
+                            downloading={downloadingId === photo._id}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           )}
         </div>
       )}
 
       {lightboxIndex !== null && results && (
         <PhotoLightbox
-          photos={results}
+          photos={[...results.filter((p) => p.tier !== "possible"), ...results.filter((p) => p.tier === "possible")]}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}

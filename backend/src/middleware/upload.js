@@ -32,3 +32,4 @@ const uploader = multer({
 export const uploadSingle = uploader.single("photo");
 export const uploadMultiple = uploader.array("photos", MAX_FILES_PER_UPLOAD);
 export const uploadSelfie = uploader.single("selfie");
+export const uploadSelfies = uploader.array("selfies", 3);
