@@ -496,13 +496,7 @@ export default function EventDetails() {
               favouritedIds={favouritedIds}
             />
           )}
-          {/*Confirm dialog for destructive actions Doubt if goes here or not*/}
-          {confirmState && (
-            <ConfirmDialog
-              {...confirmState}
-              onCancel={() => setConfirmState(null)}
-            />
-          )}
+          
         </div>
       )}
 
@@ -697,6 +691,12 @@ export default function EventDetails() {
             </div>
           </div>
         </Modal>
+      )}
+      {confirmState && (
+        <ConfirmDialog
+          {...confirmState}
+          onCancel={() => setConfirmState(null)}
+        />
       )}
     </div>
   );
