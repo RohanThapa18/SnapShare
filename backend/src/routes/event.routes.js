@@ -22,6 +22,9 @@ router.use(requireAuth);
 router.post("/", validate(createEventSchema), eventController.createEvent);
 
 router.get("/mine", eventController.listMyEvents);
+
+router.get("/slug/:slug", eventController.getEventBySlug);
+
 router.get("/:id", eventController.getEvent);
 router.get("/:id/stats", requireEventOwner, eventController.getEventStats);
 router.get("/:id/join-qr", requireEventOwner, eventController.getJoinQr);

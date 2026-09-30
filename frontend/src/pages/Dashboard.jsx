@@ -8,9 +8,14 @@ import JoinAsPhotographerModal from "../components/JoinAsPhotographerModal";
 import EmptyState from "../components/EmptyState";
 
 const StatCard = ({ label, value }) => (
-  <div className="bg-surface border border-border rounded-xl p-4 shadow-card">
-    <p className="text-xs text-text-muted uppercase tracking-wide mb-1">{label}</p>
-    <p className="text-xl font-semibold text-primary">{value}</p>
+  <div className="bg-white border border-border rounded-2xl p-5 shadow-sm hover:shadow-card transition-shadow">
+    <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
+      {label}
+    </p>
+
+    <p className="text-3xl font-semibold text-text">
+      {value}
+    </p>
   </div>
 );
 
@@ -38,13 +43,23 @@ export default function Dashboard() {
   const handleJoined = (eventId) => {
     setShowJoinModal(false);
     setShowPhotographerModal(false);
-    navigate(`/events/${eventId}`);
-  };
 
+    const allEvents = [
+      ...events.organized,
+      ...events.photographing,
+      ...events.joined,
+    ];
+
+    const joinedEvent = allEvents.find((event) => event._id === eventId);
+
+    if (joinedEvent?.slug) {
+      navigate(`/events/${joinedEvent.slug}`);
+    }
+  };
   const renderCard = (event) => (
     <Link
       key={event._id}
-      to={`/events/${event._id}`}
+      to={`/events/${event.slug}`}
       className="group block bg-surface border border-border rounded-xl overflow-hidden hover:border-primary hover:shadow-card transition-all duration-200"
     >
       <div className="aspect-video bg-surface-sunken flex items-center justify-center text-text-muted text-sm overflow-hidden">

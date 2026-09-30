@@ -29,10 +29,17 @@ const generatePasscode = () => {
 };
 
 const generateJoinToken = () => crypto.randomBytes(24).toString("base64url");
-
+const createSlug = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
 export const createEvent = asyncHandler(async (req, res) => {
   const { title, description, date, location, expiryDate } = req.body;
-
+  const slug = createSlug(title);
   if (new Date(expiryDate) <= new Date(date)) {
     throw new AppError("Expiry date must be after the event date", 400, "INVALID_EXPIRY");
   }
@@ -45,6 +52,7 @@ export const createEvent = asyncHandler(async (req, res) => {
 
   const event = await Event.create({
     title,
+    slug,
     description,
     date,
     location,
@@ -92,6 +100,47 @@ export const getEvent = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json({ success: true, data: { event, viewerAccess } });
+});
+
+export const getEventBySlug = asyncHandler(async (req, res) => {
+  const event = await Event.findOne({ slug: req.params.slug });
+
+  if (!event) {
+    throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+  }
+
+  let viewerAccess = {
+    isOrganizer: false,
+    isPhotographer: false,
+    isParticipant: false,
+  };
+
+  if (req.user) {
+    const [isPhotographer, isParticipant] = await Promise.all([
+      EventPhotographer.exists({
+        eventId: event._id,
+        userId: req.user.id,
+      }),
+      EventParticipant.exists({
+        eventId: event._id,
+        userId: req.user.id,
+      }),
+    ]);
+
+    viewerAccess = {
+      isOrganizer: event.organizerId.toString() === req.user.id,
+      isPhotographer: Boolean(isPhotographer),
+      isParticipant: Boolean(isParticipant),
+    };
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      event,
+      viewerAccess,
+    },
+  });
 });
 
 export const listMyEvents = asyncHandler(async (req, res) => {

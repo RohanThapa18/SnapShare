@@ -4,6 +4,16 @@ import { EVENT_STATUS } from "../constants/enums.js";
 const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 150 },
+
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      trim: true,
+      lowercase: true,
+    },
+
     description: { type: String, trim: true, maxlength: 2000, default: "" },
     coverImageUrl: { type: String, default: null },
     coverImagePublicId: { type: String, default: null },
