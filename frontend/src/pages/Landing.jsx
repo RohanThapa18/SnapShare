@@ -52,14 +52,33 @@ export default function Landing() {
   return (
     <div>
       {/* ---------- Hero ---------- */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden min-h-[620px] flex items-center">
         <div className="absolute inset-0 bg-gradient-to-b from-secondary/25 via-transparent to-transparent" aria-hidden="true" />
         <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 relative">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="text-center md:text-left animate-slide-up">
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-secondary/40 px-3 py-1.5 rounded-full mb-5">
-                <Sparkles size={13} /> AI-powered event photography
-              </span>
+              <span
+  className="
+    inline-flex items-center gap-1.5
+    text-xs font-medium text-primary
+    bg-secondary/40
+    border border-secondary/40
+    px-3.5 py-1.5
+    rounded-full
+    mb-5
+    transition-all duration-300
+    hover:bg-secondary/60
+    hover:border-secondary
+    hover:shadow-sm
+    hover:-translate-y-0.5
+  "
+>
+  <Sparkles
+    size={13}
+    className="transition-transform duration-500 hover:rotate-12"
+  />
+  AI-powered event photography
+</span>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-medium text-primary leading-[1.1] mb-5">
                 Find your event photos <span className="italic">using your face.</span>
               </h1>
@@ -68,27 +87,74 @@ export default function Landing() {
                 scrolling, no guessing, no waiting on a photographer's Google Drive link.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <Link
-                  to="/register"
+              <Link
+                   to="/register"
                   className="bg-primary hover:bg-primary-hover text-white px-7 py-3 rounded-control transition font-medium shadow-card"
-                >
-                  Get Started
-                </Link>
-                <Link
-                  to="/login"
-                  className="bg-surface hover:bg-surface-hover border border-border text-primary px-7 py-3 rounded-control transition font-medium"
-                >
-                  Log In
-                </Link>
-              </div>
+             >  
+                 Get Started
+             </Link>
+             <Link
+             to="/login"
+             className="bg-surface hover:bg-surface-hover border border-border text-primary px-7 py-3 rounded-control transition font-medium"
+              >
+              Log In
+              </Link>
+             </div>
             </div>
 
             {/* Decorative photo-stack mockup — pure CSS, no stock imagery */}
             <div className="relative h-72 sm:h-96 hidden md:block" aria-hidden="true">
-              <div className="absolute top-6 left-8 w-48 h-60 rounded-2xl bg-secondary/60 shadow-card rotate-[-9deg]" />
-              <div className="absolute top-2 right-6 w-48 h-60 rounded-2xl bg-accent/70 shadow-card rotate-[7deg]" />
-              <div className="absolute top-10 left-1/2 -translate-x-1/2 w-52 h-64 rounded-2xl bg-surface border border-border shadow-elevated flex flex-col items-center justify-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <div
+  className="
+    absolute top-6 left-8
+    w-48 h-60
+    rounded-2xl
+    bg-secondary/60
+    shadow-card
+    rotate-[-9deg]
+    animate-float-soft
+    transition-transform duration-500
+    hover:scale-105
+  "
+/>
+              <div
+  className="
+    absolute top-2 right-6
+    w-48 h-60
+    rounded-2xl
+    bg-accent/70
+    shadow-card
+    rotate-[7deg]
+    animate-float-delayed
+    transition-transform duration-500
+    hover:scale-105
+  "
+/>
+              <div
+  className="
+    absolute top-10 left-1/2 -translate-x-1/2
+    w-52 h-64
+    rounded-2xl
+    bg-surface
+    border border-border
+    shadow-elevated
+    flex flex-col items-center justify-center gap-3
+    animate-card-enter
+    transition-transform duration-500
+    hover:-translate-y-2
+  "
+>
+                <div
+  className="
+    w-16 h-16
+    rounded-full
+    bg-primary/10
+    flex items-center justify-center
+    transition-all duration-500
+    hover:bg-primary/20
+    hover:scale-110
+  "
+>
                   <ScanFace className="text-primary" size={30} />
                 </div>
                 <div className="text-center px-4">
@@ -109,11 +175,48 @@ export default function Landing() {
         </p>
         <div className="grid sm:grid-cols-3 gap-6">
           {STEPS.map((step, i) => (
-            <div key={step.title} className="relative bg-surface border border-border rounded-card p-6 shadow-sm">
-              <span className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-primary text-white text-sm font-medium flex items-center justify-center shadow-card">
+            <div
+  key={step.title}
+  className="
+    group
+    relative
+    bg-surface
+    border border-border
+    rounded-card
+    p-6
+    shadow-sm
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+    hover:border-secondary
+  "
+>
+              <span
+  className="
+    absolute -top-3 -left-3
+    w-8 h-8
+    rounded-full
+    bg-primary
+    text-white
+    text-sm font-medium
+    flex items-center justify-center
+    shadow-card
+    border-4 border-background
+    transition-transform duration-300
+    group-hover:scale-110
+  "
+>
                 {i + 1}
               </span>
-              <step.icon className="text-primary mb-3" size={26} />
+              <step.icon
+  className="
+    text-primary mb-3
+    transition-all duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
               <h3 className="font-medium text-primary mb-1.5">{step.title}</h3>
               <p className="text-sm text-text-muted">{step.description}</p>
             </div>
@@ -129,9 +232,42 @@ export default function Landing() {
           </h2>
           <div className="grid sm:grid-cols-2 gap-6">
             {FEATURES.map((f) => (
-              <div key={f.title} className="flex gap-4">
-                <div className="w-11 h-11 shrink-0 rounded-xl bg-secondary/40 flex items-center justify-center">
-                  <f.icon className="text-primary" size={20} />
+              <div
+  key={f.title}
+  className="
+    group
+    flex gap-4
+    rounded-2xl
+    p-5
+    border border-transparent
+    transition-all duration-300
+    hover:bg-surface
+    hover:border-border
+    hover:shadow-card
+    hover:-translate-y-1
+  "
+>
+                <div
+  className="
+    w-11 h-11
+    shrink-0
+    rounded-xl
+    bg-secondary/40
+    flex items-center justify-center
+    transition-all duration-300
+    group-hover:bg-primary
+    group-hover:text-white
+    group-hover:scale-110
+  "
+>
+                  <f.icon
+  className="
+    text-primary
+    transition-colors duration-300
+    group-hover:text-white
+  "
+  size={20}
+/>
                 </div>
                 <div>
                   <h3 className="font-medium text-primary mb-1">{f.title}</h3>
@@ -146,8 +282,28 @@ export default function Landing() {
       {/* ---------- Organizer / participant benefits ---------- */}
       <section className="max-w-5xl mx-auto px-6 py-16 sm:py-20">
         <div className="grid sm:grid-cols-2 gap-6">
-          <div className="bg-primary text-white rounded-card p-8 shadow-card">
-            <UserPlus className="mb-4" size={26} />
+          <div
+  className="
+    group
+    bg-primary
+    text-white
+    rounded-card
+    p-8
+    shadow-card
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+  "
+>
+            <UserPlus
+  className="
+    mb-4
+    transition-transform duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
             <h3 className="font-display text-xl mb-2">For organizers &amp; photographers</h3>
             <p className="text-white/80 text-sm mb-4">
               Create an event, share a QR code or passcode, and let guests find their own photos — no more fielding
@@ -159,8 +315,29 @@ export default function Landing() {
               <li>• Optional paid downloads for your official shots</li>
             </ul>
           </div>
-          <div className="bg-surface border border-border rounded-card p-8 shadow-card">
-            <Camera className="mb-4 text-primary" size={26} />
+          <div
+  className="
+    group
+    bg-surface
+    border border-border
+    rounded-card
+    p-8
+    shadow-card
+    transition-all duration-300
+    hover:-translate-y-2
+    hover:shadow-elevated
+    hover:border-secondary
+  "
+>
+            <Camera
+  className="
+    mb-4 text-primary
+    transition-transform duration-300
+    group-hover:scale-110
+    group-hover:rotate-2
+  "
+  size={26}
+/>
             <h3 className="font-display text-xl text-primary mb-2">For guests &amp; participants</h3>
             <p className="text-text-muted text-sm mb-4">
               Join with a code, upload one selfie, and get every photo you're in — official and candid — ready to
@@ -176,9 +353,16 @@ export default function Landing() {
       </section>
 
       {/* ---------- Trust / security ---------- */}
-      <section className="border-t border-border">
-        <div className="max-w-3xl mx-auto px-6 py-14 text-center">
-          <ShieldCheck className="text-primary mx-auto mb-3" size={28} />
+      <section className="border-t border-border bg-secondary/5">
+       <div
+  className="
+    max-w-3xl
+    mx-auto
+    px-6 py-16
+    text-center
+  "
+>
+<ShieldCheck className="text-primary mx-auto mb-3" size={28} />
           <h2 className="font-display text-xl text-primary mb-2">Privacy comes first</h2>
           <p className="text-text-muted text-sm max-w-lg mx-auto">
             Selfies are processed in memory and discarded immediately — never saved to disk or a database. Every
@@ -189,11 +373,33 @@ export default function Landing() {
       </section>
 
       {/* ---------- Footer ---------- */}
-      <footer className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted">
-          <span className="flex items-center gap-1.5 text-primary font-medium">
-            <Camera size={16} /> SnapShare
-          </span>
+      <footer className="border-t border-border bg-secondary/5">
+  <div
+    className="
+      max-w-6xl
+      mx-auto
+      px-6 py-10
+      flex flex-col
+      sm:flex-row
+      items-center
+      justify-between
+      gap-4
+      text-sm
+      text-text-muted
+    "
+  >
+         <span
+  className="
+    flex items-center gap-2
+    text-primary
+    font-semibold
+    transition-all duration-300
+    hover:-translate-y-0.5
+  "
+>
+  <Camera size={16} />
+  SnapShare
+</span>
           <span>© {new Date().getFullYear()} SnapShare. Built for events, not feeds.</span>
         </div>
       </footer>
