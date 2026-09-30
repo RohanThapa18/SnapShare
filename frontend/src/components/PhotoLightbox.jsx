@@ -196,7 +196,8 @@ export default function PhotoLightbox({
               <Bookmark size={18} fill={isFavourited ? "#3b82f6" : "none"} color={isFavourited ? "#3b82f6" : "currentColor"} />
             </button>
           )}
-          {onDownload && (!photo.isPaid || photo.purchased) && (
+          {onDownload &&
+  (!photo.isPaid || Number(photo.price) <= 0 || photo.purchased) && (
             <button
               onClick={() => onDownload(photo)}
               disabled={isDownloading}

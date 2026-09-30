@@ -21,7 +21,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   if (purchaseType === PURCHASE_TYPE.PHOTO) {
     const photo = await Photo.findOne({ _id: photoId, eventId });
     if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
-    if (!photo.isPaid) throw new AppError("This photo is free — no purchase needed", 400, "PHOTO_NOT_PAID");
+    if (!photo.isPaid || Number(photo.price) <= 0) throw new AppError("This photo is free — no purchase needed", 400, "PHOTO_NOT_PAID");
 
     const alreadyPurchased = await Purchase.findOne({ userId: req.user.id, photoId: photo._id });
     if (alreadyPurchased) throw new AppError("You already own this photo", 409, "ALREADY_PURCHASED");
@@ -33,7 +33,12 @@ export const createOrder = asyncHandler(async (req, res) => {
     // ALBUM purchase: sum of all paid, un-purchased OFFICIAL photos by one photographer
     if (!album) throw new AppError("album is required for album purchases", 400, "ALBUM_REQUIRED");
 
-    const photos = await Photo.find({ eventId, album, isPaid: true });
+    const photos = await Photo.find({
+  eventId,
+  album,
+  isPaid: true,
+  price: { $gt: 0 },
+});
     if (!photos.length) throw new AppError("No paid photos found in this album", 404, "NO_PAID_PHOTOS");
 
     photographerId = photos[0].uploaderId;
