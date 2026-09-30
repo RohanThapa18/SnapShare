@@ -21,9 +21,11 @@ import Modal from "../components/Modal";
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
 import { nowLocalInput } from "../utils/datetime";
 export default function EventDetails() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
+
+  const eventId = event?._id;
   // viewerAccess reflects how the CURRENT user relates to THIS specific
   // event — there's no global role, so this replaces the old
   // user.role === "PHOTOGRAPHER" style checks.
@@ -56,32 +58,32 @@ export default function EventDetails() {
   const isOrganizer = viewerAccess.isOrganizer;
   const [confirmState, setConfirmState] = useState(null);
   const loadEvent = () =>
-    eventService.getEvent(id).then((res) => {
+    eventService.getEventBySlug(slug).then((res) => {
       setEvent(res.data.data.event);
       setViewerAccess(res.data.data.viewerAccess);
     });
   const loadPhotos = () => {
     setPhotosLoading(true);
     return photoService
-      .listPhotos(id, { album })
+      .listPhotos(eventId, { album })
       .then((res) => setPhotos(res.data.data.photos))
       .finally(() => setPhotosLoading(false));
   };
 
   useEffect(() => {
     loadEvent();
-  }, [id]);
+  }, [slug]);
 
   useEffect(() => {
     if (viewerAccess.isOrganizer) {
-      eventService.getEventStats(id).then((res) => setStats(res.data.data)).catch(() => { });
+      eventService.getEventStats(eventId).then((res) => setStats(res.data.data)).catch(() => { });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, viewerAccess.isOrganizer]);
+  }, [eventId, viewerAccess.isOrganizer]);
 
   useEffect(() => {
-    if (tab === "Gallery") loadPhotos();
-  }, [tab, album, id]);
+    if (tab === "Gallery" && eventId) loadPhotos();
+  }, [tab, album, eventId]);
   useEffect(() => {
     setDeleting(false);
     setConfirmState(null);
@@ -89,7 +91,7 @@ export default function EventDetails() {
     setPasscode(null);
     setJoinQr(null);
     setPhotographerJoinQr(null);
-  }, [id]);
+  }, [slug]);
   useEffect(() => {
     if (showSettings && isOrganizer && passcode === null && !passcodeLoading) loadPasscode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,7 +100,7 @@ export default function EventDetails() {
   const handleBuy = async (photo) => {
     try {
       const res = await paymentService.createOrder({
-        eventId: id,
+        eventId: eventId,
         purchaseType: "PHOTO",
         photoId: photo._id,
       });
@@ -188,17 +190,17 @@ export default function EventDetails() {
     }
   };
   const loadQr = async () => {
-    const res = await eventService.getJoinQr(id);
+    const res = await eventService.getJoinQr(eventId);
     setJoinQr(res.data.data);
   };
 
   const loadPhotographerQr = async () => {
-    const res = await eventService.getPhotographerJoinQr(id);
+    const res = await eventService.getPhotographerJoinQr(eventId);
     setPhotographerJoinQr(res.data.data);
   };
 
   const handleCopyId = async () => {
-    await navigator.clipboard.writeText(id);
+    await navigator.clipboard.writeText(eventId);
     setIdCopied(true);
     setTimeout(() => setIdCopied(false), 1500);
   };
@@ -212,7 +214,7 @@ export default function EventDetails() {
       onConfirm: async () => {
         setLeaving(true);
         try {
-          await eventService.leaveEvent(id);
+          await eventService.leaveEvent(eventId);
           toast.success("Left the event");
           navigate("/dashboard");
         } catch (err) {
@@ -250,7 +252,7 @@ export default function EventDetails() {
       onConfirm: async () => {
         setDeleting(true);
         try {
-          await eventService.deleteEvent(id);
+          await eventService.deleteEvent(eventId);
           toast.success("Event deleted");
           navigate("/dashboard");
         } catch (err) {
@@ -269,7 +271,7 @@ export default function EventDetails() {
     }
     setExtending(true);
     try {
-      const res = await eventService.updateEvent(id, { expiryDate: new Date(newExpiryDate).toISOString() });
+      const res = await eventService.updateEvent(eventId, { expiryDate: new Date(newExpiryDate).toISOString() });
       setEvent(res.data.data.event);
       toast.success("Event duration extended");
       setNewExpiryDate("");
@@ -283,7 +285,7 @@ export default function EventDetails() {
   const loadPasscode = async () => {
     setPasscodeLoading(true);
     try {
-      const res = await eventService.getEventPasscode(id);
+      const res = await eventService.getEventPasscode(eventId);
       setPasscode(res.data.data.passcode);
       setPasscodeNeedsRegen(res.data.data.needsRegeneration);
       setPasscodeVisible(false);
@@ -298,7 +300,7 @@ export default function EventDetails() {
     const doRegenerate = async () => {
       setRegenerating(true);
       try {
-        const res = await eventService.regeneratePasscode(id);
+        const res = await eventService.regeneratePasscode(eventId);
         setPasscode(res.data.data.passcode);
         setPasscodeNeedsRegen(false);
         setPasscodeVisible(true);
@@ -331,7 +333,7 @@ export default function EventDetails() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await photoService.syncPhotosWithCloudinary(id);
+      const res = await photoService.syncPhotosWithCloudinary(eventId);
       toast.success(res.data.message);
       loadPhotos();
     } catch (err) {
@@ -373,7 +375,7 @@ export default function EventDetails() {
               className="flex items-center gap-1 text-xs text-text-muted hover:text-text mt-2 transition"
             >
               {idCopied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-              Event ID: {id}
+              Event: {event.slug}
             </button>
           )}
         </div>
@@ -508,7 +510,7 @@ export default function EventDetails() {
 
       {tab === "Upload" && (
         <PhotoUploader
-          eventId={id}
+          eventId={eventId}
           canUploadOfficial={viewerAccess.isPhotographer}
           canUploadCommunity={viewerAccess.isParticipant}
           onUploaded={loadPhotos}
@@ -517,7 +519,7 @@ export default function EventDetails() {
 
       {tab === "Find My Photos" && (
         <FindMyPhotosPanel
-          eventId={id}
+          eventId={eventId}
           onDownload={handleDownload}
           onBuy={handleBuy}
           onLike={handleLike}
@@ -527,8 +529,8 @@ export default function EventDetails() {
         />
       )}
 
-      {tab === "Participants" && <ParticipantsPanel eventId={id} isOrganizer={isOrganizer} />}
-      {tab === "Photographers" && <PhotographersPanel eventId={id} isOrganizer={isOrganizer} />}
+      {tab === "Participants" && <ParticipantsPanel eventId={eventId} isOrganizer={isOrganizer} />}
+      {tab === "Photographers" && <PhotographersPanel eventId={eventId} isOrganizer={isOrganizer} />}
 
       {showSettings && viewerAccess.isOrganizer && (
         <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>

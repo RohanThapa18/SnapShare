@@ -2,6 +2,8 @@ import api from "./api";
 
 export const createEvent = (payload) => api.post("/events", payload);
 export const getEvent = (id) => api.get(`/events/${id}`);
+export const getEventBySlug = (slug) =>
+  api.get(`/events/slug/${slug}`);
 export const listMyEvents = () => api.get("/events/mine");
 export const updateEvent = (id, payload) => api.put(`/events/${id}`, payload);
 export const deleteEvent = (id) => api.delete(`/events/${id}`);
