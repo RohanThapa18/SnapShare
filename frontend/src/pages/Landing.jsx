@@ -374,8 +374,7 @@ export default function Landing() {
               <h3 className="font-medium text-primary mb-1.5">{step.title}</h3>
               <p className="text-sm text-text-muted">{step.description}</p>
             </div>
-
-          </div>
+          ))}
 
         </div>
 
@@ -431,103 +430,10 @@ export default function Landing() {
                   <p className="text-sm text-text-muted">{f.description}</p>
                 </div>
 
-                <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-3">
-                  For organizers
-                </p>
-
-                <h3 className="font-display text-2xl sm:text-3xl mb-4">
-                  Give your guests an easier way to find their photos.
-                </h3>
-
-                <p className="text-white/70 text-sm leading-7 mb-7 max-w-lg">
-                  Create an event, share a QR code or passcode, and let
-                  guests find their own photos without endless requests
-                  for individual images.
-                </p>
-
-
-                <ul className="space-y-3 text-sm text-white/80">
-
-                  <li className="flex items-start gap-3">
-                    <Check size={17} className="mt-0.5 shrink-0" />
-                    Separate official and community albums
-                  </li>
-
-                  <li className="flex items-start gap-3">
-                    <Check size={17} className="mt-0.5 shrink-0" />
-                    Easy event access with QR codes and passcodes
-                  </li>
-
-                  <li className="flex items-start gap-3">
-                    <Check size={17} className="mt-0.5 shrink-0" />
-                    Optional paid downloads for official photos
-                  </li>
-
-                </ul>
-
               </div>
-
-            </div>
-
-
-            {/* Guests */}
-
-            <div className="relative overflow-hidden rounded-3xl bg-background border border-border p-8 sm:p-10">
-
-              <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-7">
-
-                <Camera
-                  size={23}
-                  className="text-primary"
-                />
-
-              </div>
-
-              <p className="text-xs uppercase tracking-[0.18em] text-accent-hover mb-3">
-                For guests
-              </p>
-
-              <h3 className="font-display text-2xl sm:text-3xl text-text mb-4">
-                Find the moments you actually want to keep.
-              </h3>
-
-              <p className="text-text-muted text-sm leading-7 mb-7">
-                Join with a code, upload one selfie, and let AI locate
-                every photo you're in across the event gallery.
-              </p>
-
-
-              <ul className="space-y-3 text-sm text-text-muted">
-
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Check size={12} className="text-success" />
-                  </span>
-                  Download your complete collection as a ZIP
-                </li>
-
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Check size={12} className="text-success" />
-                  </span>
-                  Full-screen photo viewer
-                </li>
-
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Check size={12} className="text-success" />
-                  </span>
-                  Selfie used only for your event search
-                </li>
-
-              </ul>
-
-            </div>
-
+            ))}
           </div>
-
         </div>
-
       </section>
 
       {/* ---------- Organizer / participant benefits ---------- */}
