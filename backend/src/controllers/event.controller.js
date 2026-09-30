@@ -3,7 +3,18 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
 import QRCode from "qrcode";
-import { Event, EventParticipant, EventPhotographer, Photo } from "../models/index.js";
+import {
+  Event,
+  Photo,
+  EventParticipant,
+  EventPhotographer,
+  Purchase,
+  MyPhotosCollection,
+  FaceEmbedding,
+  Like,
+  Favourite,
+  Download,
+} from "../models/index.js";
 import { deleteCloudinaryAsset } from "../services/cloudinaryService.js";
 import { maskEmail } from "../utils/maskEmail.js";
 import { AppError } from "../utils/AppError.js";
@@ -139,16 +150,23 @@ export const updateEvent = asyncHandler(async (req, res) => {
 export const deleteEvent = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
 
-  // Cascade-delete related records. Photo binary cleanup on Cloudinary is
-  // handled by photoService when photos are deleted individually — for a
-  // full event delete we also remove Cloudinary assets here.
-  const photos = await Photo.find({ eventId }).select("cloudinaryPublicId");
+  const photos = await Photo.find({ eventId }).select("_id cloudinaryPublicId");
+  const photoIds = photos.map((p) => p._id);
+
+  // Cloudinary cleanup first — if this fails for a given asset we still
+  // want the DB cleanup below to proceed, so failures are swallowed here.
   await Promise.all(photos.map((p) => deleteCloudinaryAsset(p.cloudinaryPublicId).catch(() => { })));
 
   await Promise.all([
     Photo.deleteMany({ eventId }),
     EventParticipant.deleteMany({ eventId }),
     EventPhotographer.deleteMany({ eventId }),
+    Purchase.deleteMany({ eventId }),
+    MyPhotosCollection.deleteMany({ eventId }),
+    FaceEmbedding.deleteMany({ eventId }),
+    Like.deleteMany({ photoId: { $in: photoIds } }),
+    Favourite.deleteMany({ photoId: { $in: photoIds } }),
+    Download.deleteMany({ photoId: { $in: photoIds } }),
     Event.findByIdAndDelete(eventId),
   ]);
 

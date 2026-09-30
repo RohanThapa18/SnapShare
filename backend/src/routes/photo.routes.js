@@ -12,7 +12,7 @@ export const eventPhotoRouter = Router({ mergeParams: true });
 
 eventPhotoRouter.use(requireAuth);
 
-eventPhotoRouter.get("/", photoController.listPhotos);
+eventPhotoRouter.get("/", requireEventParticipant, photoController.listPhotos);
 
 eventPhotoRouter.post(
   "/official",
