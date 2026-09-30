@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import { Photo, Purchase, Download, Like, Favourite, FaceEmbedding, Event } from "../models/index.js";
+import { Photo, Purchase, Download, Like, Favourite, FaceEmbedding, EventParticipant } from "../models/index.js";
 import { processImage } from "../services/imageService.js";
 import {
   uploadToCloudinary,
@@ -193,8 +193,13 @@ export const updatePhotoMeta = asyncHandler(async (req, res) => {
  * verified Purchase record exists — enforced here, not just hidden in UI.
  */
 export const downloadPhoto = asyncHandler(async (req, res) => {
-  const photo = await Photo.findById(req.params.photoId);
+ const photo = await Photo.findById(req.params.photoId);
   if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
+
+  const membership = await EventParticipant.findOne({ eventId: photo.eventId, userId: req.user.id });
+  if (!membership) {
+    throw new AppError("You must join this event before downloading its photos", 403, "NOT_EVENT_MEMBER");
+  }
 
   if (photo.isPaid) {
     const purchase = await Purchase.findOne({ userId: req.user.id, photoId: photo._id });

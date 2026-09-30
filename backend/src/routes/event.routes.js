@@ -26,7 +26,7 @@ router.get("/:id", eventController.getEvent);
 router.get("/:id/stats", requireEventOwner, eventController.getEventStats);
 router.get("/:id/join-qr", requireEventOwner, eventController.getJoinQr);
 router.get("/:id/photographer-join-qr", requireEventOwner, eventController.getPhotographerJoinQr);
-
+router.get("/:id", requireEventParticipant, eventController.getEvent);
 // Organizer-only, backend-enforced passcode access — can be called any
 // time while the organizer owns the event, not just right after
 // creation. requireEventOwner (not a frontend check) is what actually
