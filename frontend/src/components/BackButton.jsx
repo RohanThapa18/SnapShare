@@ -1,12 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-/**
- * Simple browser-history-aware back button. Falls back to a given
- * route if there's no meaningful history to go back to (e.g. someone
- * landed directly on a deep link).
- */
-export default function BackButton({ fallback = "/dashboard", label = "Back" }) {
+export default function BackButton({
+  fallback = "/dashboard",
+  label = "Back",
+}) {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -19,11 +17,60 @@ export default function BackButton({ fallback = "/dashboard", label = "Back" }) 
 
   return (
     <button
+      type="button"
       onClick={handleClick}
-      className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition mb-4"
+      aria-label={label}
+      className="
+        group
+        inline-flex
+        items-center
+        gap-2
+        mb-5
+        rounded-xl
+        border
+        border-[#E4E0D8]
+        bg-[#FFFCF5]
+        px-3
+        py-2
+        text-sm
+        font-medium
+        text-text-muted
+        transition-all
+        duration-200
+        ease-out
+
+        hover:-translate-x-0.5
+        hover:border-[#D6D1C7]
+        hover:bg-[#FFFCF5]
+        hover:text-primary
+        hover:shadow-[0_3px_10px_rgba(55,67,117,0.08)]
+
+        active:translate-x-0
+        active:scale-[0.97]
+
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-primary/30
+      "
     >
-      <ArrowLeft size={16} />
-      {label}
+      <span
+        className="
+          flex
+          items-center
+          justify-center
+          transition-transform
+          duration-200
+          ease-out
+          group-hover:-translate-x-0.5
+        "
+      >
+        <ArrowLeft
+          size={18}
+          strokeWidth={2}
+        />
+      </span>
+
+      <span>{label}</span>
     </button>
   );
 }
