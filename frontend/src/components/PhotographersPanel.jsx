@@ -66,7 +66,7 @@ export default function PhotographersPanel({ eventId, isOrganizer }) {
           <div key={p._id} className="flex items-center justify-between py-3">
             <div>
               <p className="text-sm">{p.userId?.name}</p>
-              <p className="text-xs text-text-muted">{p.userId?.email}</p>
+              {p.userId?.email && <p className="text-xs text-text-muted">{p.userId.email}</p>}
             </div>
             <div className="flex items-center gap-3">
               {isOrganizer ? (
