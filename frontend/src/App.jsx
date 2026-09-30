@@ -54,7 +54,14 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
           <Route path="/events/create" element={<ProtectedRoute><CreateEvent /></ProtectedRoute>} />
-          <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+          <Route
+            path="/events/:slug"
+            element={
+              <ProtectedRoute>
+                <EventDetails />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="/purchases" element={<ProtectedRoute><PurchaseHistory /></ProtectedRoute>} />
           <Route path="/liked" element={<ProtectedRoute><LikedFavourites /></ProtectedRoute>} />

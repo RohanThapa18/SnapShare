@@ -9,13 +9,15 @@ logger = logging.getLogger("snapshare.ai")
 
 _face_app: FaceAnalysis | None = None
 
+# Below this, InsightFace's own detector confidence is too low to trust
+# the embedding (common on tiny/blurry/heavily-angled background faces).
+MIN_DET_SCORE = 0.5
+# A face smaller than this fraction of the image area rarely has enough
+# resolution for ArcFace to produce a discriminative embedding.
+MIN_FACE_AREA_RATIO = 0.015
+
 
 def get_face_app() -> FaceAnalysis:
-    """
-    Lazily loads the InsightFace model (buffalo_l by default — a solid
-    accuracy/speed tradeoff for detection + ArcFace embeddings). Loaded
-    once per process and reused across requests.
-    """
     global _face_app
     if _face_app is None:
         logger.info(f"Loading InsightFace model '{settings.insightface_model_name}'...")
@@ -33,18 +35,32 @@ def decode_image(image_bytes: bytes) -> np.ndarray:
     return img
 
 
+def _bbox_area(face) -> float:
+    x1, y1, x2, y2 = face.bbox
+    return max(0.0, (x2 - x1)) * max(0.0, (y2 - y1))
+
+
 def detect_faces(image_bytes: bytes) -> list[dict]:
     """
     Detects all faces in an image and returns embeddings + bounding boxes.
-    Used for event photos, which may contain multiple people.
+    Used for event photos, which may contain multiple people. Faces that
+    fail the quality gate (too small or too low detector confidence — the
+    common case in crowd shots or motion blur) are dropped entirely rather
+    than stored: a noisy embedding only adds false-positive risk to every
+    future search against this event, never a real benefit.
     """
     img = decode_image(image_bytes)
     face_app = get_face_app()
     faces = face_app.get(img)
+    img_area = img.shape[0] * img.shape[1] or 1
 
     results = []
     for idx, face in enumerate(faces):
-        bbox = face.bbox.astype(int).tolist()  # [x1, y1, x2, y2]
+        area_ratio = _bbox_area(face) / img_area
+        if face.det_score < MIN_DET_SCORE or area_ratio < MIN_FACE_AREA_RATIO:
+            continue
+
+        bbox = face.bbox.astype(int).tolist()
         results.append(
             {
                 "faceIndex": idx,
@@ -54,20 +70,18 @@ def detect_faces(image_bytes: bytes) -> list[dict]:
                     "width": bbox[2] - bbox[0],
                     "height": bbox[3] - bbox[1],
                 },
-                # ArcFace embedding, L2-normalized so cosine similarity is
-                # well-behaved on the Node side.
                 "embedding": (face.normed_embedding).tolist(),
+                "detScore": float(face.det_score),
             }
         )
     return results
 
 
-def embed_single_face(image_bytes: bytes) -> list[float] | None:
+def embed_single_face(image_bytes: bytes) -> dict | None:
     """
-    Used for selfie uploads — returns the embedding of the single most
-    prominent (largest bounding box) detected face, or None if no face
-    was found. The caller (main.py) is responsible for discarding the
-    image bytes immediately after this call returns.
+    Used for selfie uploads. Returns quality metadata alongside the
+    embedding so the caller can decide whether to trust it, rather than
+    silently accepting whatever face happened to be biggest.
     """
     img = decode_image(image_bytes)
     face_app = get_face_app()
@@ -76,10 +90,13 @@ def embed_single_face(image_bytes: bytes) -> list[float] | None:
     if not faces:
         return None
 
-    # If multiple faces appear in a selfie, use the largest one (most likely the subject)
-    def area(f):
-        x1, y1, x2, y2 = f.bbox
-        return (x2 - x1) * (y2 - y1)
+    img_area = img.shape[0] * img.shape[1] or 1
+    best = max(faces, key=_bbox_area)
+    area_ratio = _bbox_area(best) / img_area
 
-    best = max(faces, key=area)
-    return best.normed_embedding.tolist()
+    return {
+        "embedding": best.normed_embedding.tolist(),
+        "detScore": float(best.det_score),
+        "faceAreaRatio": float(area_ratio),
+        "lowQuality": bool(best.det_score < MIN_DET_SCORE or area_ratio < MIN_FACE_AREA_RATIO),
+    }

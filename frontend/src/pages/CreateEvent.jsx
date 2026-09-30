@@ -88,7 +88,7 @@ export default function CreateEvent() {
         )}
 
         <button
-          onClick={() => navigate(`/events/${createdEvent._id}`)}
+          onClick={() => navigate(`/events/${createdEvent.slug}`)}
           className="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition"
         >
           Go to Event

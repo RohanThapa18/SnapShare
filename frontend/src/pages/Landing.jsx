@@ -1,3 +1,4 @@
+
 import { Navigate, Link } from "react-router-dom";
 import {
   Camera,
@@ -10,44 +11,84 @@ import {
   UserPlus,
   PackageCheck,
   Lock,
+  ArrowRight,
+  Check,
+  Play,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const STEPS = [
   {
+    number: "01",
     icon: QrCode,
     title: "Join the event",
-    description: "Scan a QR code or enter the passcode your organizer shared — no separate app, no account type to pick.",
+    description:
+      "Scan a QR code or enter the passcode your organizer shared. No separate app and no complicated setup.",
   },
   {
+    number: "02",
     icon: ScanFace,
     title: "Upload a selfie",
-    description: "One clear photo of your face. It's used only to search this event's photos and is never stored.",
+    description:
+      "Upload one clear photo of yourself. Our AI uses it to search the event gallery for your photos.",
   },
   {
+    number: "03",
     icon: PackageCheck,
     title: "Get your photos",
-    description: "Every photo you appear in, ready to browse, download individually, or grab all at once as a ZIP.",
+    description:
+      "Browse every photo you appear in and download individual photos or your complete collection.",
   },
 ];
 
 const FEATURES = [
-  { icon: ScanFace, title: "Face-matching search", description: "AI finds every photo you're in across an entire event gallery in seconds." },
-  { icon: Images, title: "Official + community albums", description: "Photographer uploads and guest-submitted shots, kept in their own separate spaces." },
-  { icon: Download, title: "True high-resolution downloads", description: "Full-quality originals, not compressed previews — one photo or your whole collection at once." },
-  { icon: Lock, title: "Private by design", description: "Passcodes and QR tokens gate every event; paid photos stay watermarked until purchased." },
+  {
+    icon: ScanFace,
+    title: "AI face matching",
+    description:
+      "Find every photo you're in across an entire event gallery without manually scrolling through hundreds of images.",
+  },
+  {
+    icon: Images,
+    title: "Multiple photo collections",
+    description:
+      "Keep official photographer uploads and community-submitted photos organized in separate spaces.",
+  },
+  {
+    icon: Download,
+    title: "High-resolution downloads",
+    description:
+      "Download original-quality photos individually or collect your entire matched gallery at once.",
+  },
+  {
+    icon: Lock,
+    title: "Private by design",
+    description:
+      "Event access is protected with passcodes and QR tokens, while purchased photos remain protected until payment.",
+  },
 ];
 
 export default function Landing() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-text-muted">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center animate-pulse">
+            <Camera size={20} className="text-white" />
+          </div>
+
+          <p className="text-sm text-text-muted">Loading SnapShare...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Logged-in users go straight to their dashboard — there's no
-  // separate role-specific landing anymore.
-  if (user) return <Navigate to="/dashboard" replace />;
+  // Logged-in users go directly to their dashboard.
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div>
@@ -82,9 +123,14 @@ export default function Landing() {
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-medium text-primary leading-[1.1] mb-5">
                 Find your event photos <span className="italic">using your face.</span>
               </h1>
-              <p className="text-text-muted text-base sm:text-lg max-w-md mx-auto md:mx-0 mb-8">
-                Upload a selfie, and SnapShare finds every photo you're in — out of thousands — in seconds. No
-                scrolling, no guessing, no waiting on a photographer's Google Drive link.
+
+
+              {/* Description */}
+
+              <p className="text-base sm:text-lg leading-8 text-text-muted max-w-xl mx-auto lg:mx-0 mb-9">
+                Stop scrolling through hundreds of event photos.
+                Upload one selfie and let SnapShare's AI find every
+                memory you're in.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
               <Link
@@ -157,14 +203,122 @@ export default function Landing() {
 >
                   <ScanFace className="text-primary" size={30} />
                 </div>
-                <div className="text-center px-4">
-                  <p className="text-sm font-medium text-primary">Match found</p>
-                  <p className="text-xs text-text-muted">128 photos · 96% confidence</p>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-text">
+                    AI search
+                  </p>
+
+                  <p className="text-[11px] text-text-muted">
+                    Finding your memories...
+                  </p>
+
                 </div>
+
               </div>
+
+
+              {/* Floating photo count */}
+
+              <div className="absolute top-20 right-0 sm:right-4 bg-white border border-border rounded-2xl shadow-card px-4 py-3">
+
+                <p className="text-[10px] uppercase tracking-wider text-text-muted">
+                  Gallery
+                </p>
+
+                <p className="text-lg font-semibold text-primary">
+                  1,248
+                </p>
+
+                <p className="text-[10px] text-text-muted">
+                  photos ready
+                </p>
+
+              </div>
+
             </div>
+
           </div>
+
         </div>
+
+      </section>
+
+
+      {/* =====================================================
+          HOW IT WORKS
+      ===================================================== */}
+
+      <section className="border-y border-border bg-white">
+
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-20 sm:py-24">
+
+          <div className="text-center max-w-2xl mx-auto mb-14">
+
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-hover">
+              Simple by design
+            </span>
+
+            <h2 className="font-display text-3xl sm:text-4xl text-text mt-3 mb-4">
+              From event to memories in three steps.
+            </h2>
+
+            <p className="text-text-muted leading-7">
+              No complicated setup. Join your event, let AI find your
+              photos, and enjoy your memories.
+            </p>
+
+          </div>
+
+
+          <div className="grid md:grid-cols-3 gap-6">
+
+            {STEPS.map((step) => {
+              const Icon = step.icon;
+
+              return (
+                <div
+                  key={step.title}
+                  className="group relative bg-background border border-border rounded-2xl p-7 hover:border-primary/20 hover:shadow-card transition-all"
+                >
+
+                  {/* Number */}
+
+                  <div className="flex items-center justify-between mb-7">
+
+                    <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary transition-colors">
+
+                      <Icon
+                        size={22}
+                        className="text-primary group-hover:text-white transition-colors"
+                      />
+
+                    </div>
+
+                    <span className="text-xs font-semibold tracking-widest text-text-muted">
+                      {step.number}
+                    </span>
+
+                  </div>
+
+
+                  <h3 className="text-lg font-semibold text-text mb-2">
+                    {step.title}
+                  </h3>
+
+                  <p className="text-sm leading-6 text-text-muted">
+                    {step.description}
+                  </p>
+
+                </div>
+              );
+            })}
+
+          </div>
+
+        </div>
+
       </section>
 
       {/* ---------- How it works ---------- */}
@@ -220,8 +374,11 @@ export default function Landing() {
               <h3 className="font-medium text-primary mb-1.5">{step.title}</h3>
               <p className="text-sm text-text-muted">{step.description}</p>
             </div>
-          ))}
+
+          </div>
+
         </div>
+
       </section>
 
       {/* ---------- Features ---------- */}
@@ -273,10 +430,104 @@ export default function Landing() {
                   <h3 className="font-medium text-primary mb-1">{f.title}</h3>
                   <p className="text-sm text-text-muted">{f.description}</p>
                 </div>
+
+                <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-3">
+                  For organizers
+                </p>
+
+                <h3 className="font-display text-2xl sm:text-3xl mb-4">
+                  Give your guests an easier way to find their photos.
+                </h3>
+
+                <p className="text-white/70 text-sm leading-7 mb-7 max-w-lg">
+                  Create an event, share a QR code or passcode, and let
+                  guests find their own photos without endless requests
+                  for individual images.
+                </p>
+
+
+                <ul className="space-y-3 text-sm text-white/80">
+
+                  <li className="flex items-start gap-3">
+                    <Check size={17} className="mt-0.5 shrink-0" />
+                    Separate official and community albums
+                  </li>
+
+                  <li className="flex items-start gap-3">
+                    <Check size={17} className="mt-0.5 shrink-0" />
+                    Easy event access with QR codes and passcodes
+                  </li>
+
+                  <li className="flex items-start gap-3">
+                    <Check size={17} className="mt-0.5 shrink-0" />
+                    Optional paid downloads for official photos
+                  </li>
+
+                </ul>
+
               </div>
-            ))}
+
+            </div>
+
+
+            {/* Guests */}
+
+            <div className="relative overflow-hidden rounded-3xl bg-background border border-border p-8 sm:p-10">
+
+              <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-7">
+
+                <Camera
+                  size={23}
+                  className="text-primary"
+                />
+
+              </div>
+
+              <p className="text-xs uppercase tracking-[0.18em] text-accent-hover mb-3">
+                For guests
+              </p>
+
+              <h3 className="font-display text-2xl sm:text-3xl text-text mb-4">
+                Find the moments you actually want to keep.
+              </h3>
+
+              <p className="text-text-muted text-sm leading-7 mb-7">
+                Join with a code, upload one selfie, and let AI locate
+                every photo you're in across the event gallery.
+              </p>
+
+
+              <ul className="space-y-3 text-sm text-text-muted">
+
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check size={12} className="text-success" />
+                  </span>
+                  Download your complete collection as a ZIP
+                </li>
+
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check size={12} className="text-success" />
+                  </span>
+                  Full-screen photo viewer
+                </li>
+
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check size={12} className="text-success" />
+                  </span>
+                  Selfie used only for your event search
+                </li>
+
+              </ul>
+
+            </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* ---------- Organizer / participant benefits ---------- */}
@@ -343,13 +594,31 @@ export default function Landing() {
               Join with a code, upload one selfie, and get every photo you're in — official and candid — ready to
               download in full resolution.
             </p>
-            <ul className="text-sm text-text-muted space-y-1.5">
-              <li>• One-tap "Download All" as a ZIP</li>
-              <li>• Full-screen viewer, swipe or arrow-key browsing</li>
-              <li>• Your selfie is used only to search — never stored</li>
-            </ul>
+
+
+            <div className="flex flex-wrap justify-center gap-3 mt-7">
+
+              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-secondary text-primary text-xs font-medium">
+                <Lock size={13} />
+                Private searches
+              </span>
+
+              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-secondary text-primary text-xs font-medium">
+                <ShieldCheck size={13} />
+                Server-side validation
+              </span>
+
+              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-secondary text-primary text-xs font-medium">
+                <ScanFace size={13} />
+                Temporary face processing
+              </span>
+
+            </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* ---------- Trust / security ---------- */}
@@ -369,7 +638,20 @@ export default function Landing() {
             search is scoped to the single event you've joined, and every download is checked against your actual
             purchase and membership records on the server, not just hidden in the interface.
           </p>
+
+
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white text-primary hover:bg-white/90 font-semibold shadow-elevated hover:-translate-y-0.5 transition-all"
+          >
+            Get Started
+
+            <ArrowRight size={18} />
+
+          </Link>
+
         </div>
+
       </section>
 
       {/* ---------- Footer ---------- */}
@@ -402,7 +684,9 @@ export default function Landing() {
 </span>
           <span>© {new Date().getFullYear()} SnapShare. Built for events, not feeds.</span>
         </div>
+
       </footer>
+
     </div>
   );
 }

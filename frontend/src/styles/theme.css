@@ -1,123 +1,255 @@
-/* ============================================================
-   SNAPSHARE THEME — "Studio" design system
-   ------------------------------------------------------------
-   This is the ONE file to edit to change the app's look and feel.
-   Every color, radius, shadow and font used across every page/
-   component pulls from the variables defined here via Tailwind's
-   @theme (Tailwind v4).
-
-   Palette source: brand reference board —
-   Navy #374375 · Cloud #FFFCF5 · Periwinkle #BABDE2 ·
-   Maroon #895159 · Peach #DFAEA1
-
-   HOW TO USE:
-   - Change a color below (e.g. --color-primary) and every button,
-     link, and accent across the whole app updates automatically —
-     no need to hunt through individual component files.
-   - Change --font-sans / --font-display to swap the app's typefaces.
-     If you pick different Google Fonts, also update the <link> tag
-     in index.html to load them.
-   - Tailwind classes like `bg-primary`, `text-accent`, `border-error`
-     etc. used throughout the codebase all resolve to these values.
-   ============================================================ */
-
 @theme {
+  /* =========================================================
+     SNAPSHARE — PROFESSIONAL DESIGN SYSTEM
+     ========================================================= */
+
   /* ---------- Typography ---------- */
-  /* Body copy: clean grotesque for readability at small sizes. */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  /* Display: a warmer serif used sparingly for hero copy and big
-     section headings — this is most of the "premium" feel. Falls
-     back to the sans stack everywhere else. */
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
   --font-display: "Fraunces", "Inter", ui-serif, Georgia, serif;
 
-  /* ---------- Core brand colors ---------- */
-  --color-background: #fffcf5; /* CLOUD — page background */
-  --color-primary: #374375; /* NAVY — primary actions, nav, headings */
-  --color-primary-hover: #2c3560;
-  --color-secondary: #babde2; /* PERIWINKLE — secondary surfaces / highlights */
-  --color-secondary-hover: #a6a9d6;
-  --color-accent: #dfaea1; /* PEACH — accents, notifications, subtle highlights */
-  --color-accent-hover: #d59c8d;
-  --color-error: #895159; /* MAROON — destructive / important secondary states */
-  --color-error-hover: #723e45;
-  /* Not part of the 5-color brand board, but needed for ordinary
-     confirmation states; chosen to sit quietly alongside it. */
-  --color-success: #5f7a52;
-  --color-success-hover: #4d6442;
 
-  /* ---------- Surfaces & structure ---------- */
-  /* "Surface" colors are used for cards, panels, and modals sitting on
-     top of the page background. Cloud is warm off-white, so surfaces
-     sit one shade whiter/cooler for gentle separation without hard
-     borders. */
+  /* ---------- Brand ---------- */
+
+  --color-background: #f7f8fc;
+
+  --color-primary: #26345f;
+  --color-primary-hover: #1d284a;
+
+  --color-secondary: #e9edf8;
+  --color-secondary-hover: #dce3f3;
+
+  --color-accent: #e59a7a;
+  --color-accent-hover: #d98765;
+
+  --color-error: #c65a5a;
+  --color-error-hover: #aa4848;
+
+  --color-success: #3b8a68;
+  --color-success-hover: #2f7357;
+
+
+  /* ---------- Surfaces ---------- */
+
   --color-surface: #ffffff;
-  --color-surface-hover: #f4f1ea;
-  --color-surface-sunken: #faf7ef; /* inset fields, code blocks, wells */
-  --color-border: #e7e2d8;
+  --color-surface-hover: #f9fafb;
+  --color-surface-sunken: #f2f4f7;
+
+  --color-border: #e4e7ec;
+
 
   /* ---------- Text ---------- */
-  --color-text: #2c3560; /* near-navy, softer than pure primary for body copy */
-  --color-text-muted: #6b7096;
-  /* Text color to use ON TOP of accent/secondary (Peach/Periwinkle)
-     backgrounds, which are too light for white text to sit on. */
-  --color-on-accent: #374375;
 
-  /* ---------- Shape & elevation ---------- */
+  --color-text: #172033;
+  --color-text-muted: #667085;
+
+  --color-on-accent: #172033;
+
+
+  /* ---------- Radius ---------- */
+
   --radius-card: 1.25rem;
   --radius-control: 0.75rem;
-  --shadow-sm: 0 1px 2px rgba(55, 67, 117, 0.06);
-  --shadow-card: 0 2px 10px rgba(55, 67, 117, 0.06), 0 10px 30px -12px rgba(55, 67, 117, 0.12);
-  --shadow-elevated: 0 20px 50px -20px rgba(55, 67, 117, 0.35);
+
+
+  /* ---------- Shadows ---------- */
+
+  --shadow-sm:
+    0 1px 2px rgba(16, 24, 40, 0.04);
+
+  --shadow-card:
+    0 4px 12px rgba(16, 24, 40, 0.04),
+    0 12px 30px rgba(16, 24, 40, 0.06);
+
+  --shadow-elevated:
+    0 20px 50px rgba(16, 24, 40, 0.14);
 }
 
-/* Base page styles pulling from the theme above */
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
 html {
   scroll-behavior: smooth;
 }
 
 body {
-  background-color: var(--color-background);
+  margin: 0;
+  background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
+
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Smooth, consistent scrollbars that match the light theme instead of
-   the default OS scrollbar clashing with it */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+
+/* =========================================================
+   LINKS / BUTTONS
+   ========================================================= */
+
+button,
+a {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+:focus-visible {
+  outline: 3px solid rgba(229, 154, 122, 0.45);
+  outline-offset: 3px;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
 ::-webkit-scrollbar-track {
   background: var(--color-background);
 }
+
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: #cfd4df;
   border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-secondary);
+  background: #aeb5c4;
 }
 
-/* A subtle default transition on interactive elements so hover states
-   feel intentional rather than instant/jarring across the whole app */
-button,
-a {
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease,
-    transform 150ms ease, box-shadow 150ms ease;
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
-/* Visible, on-brand focus ring everywhere — accessibility must not be
-   sacrificed for the redesign. */
-:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-  border-radius: 4px;
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Respect reduced-motion preferences globally: collapse all custom
-   animation/transition durations to near-zero rather than disabling
-   functionality. */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 220ms ease-out both;
+}
+
+.animate-slide-up {
+  animation: slide-up 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+
+/* =========================================================
+   SKELETON
+   ========================================================= */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e9ecf2;
+}
+
+.skeleton::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+
+  background-size: 200% 100%;
+
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   PHOTO MASONRY
+   ========================================================= */
+
+.break-inside-avoid {
+  break-inside: avoid;
+}
+
+.photo-masonry {
+  column-gap: 1rem;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
