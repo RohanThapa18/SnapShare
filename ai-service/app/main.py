@@ -15,17 +15,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15MB, matches backend's MAX_FILE_SIZE_MB default
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+MAX_SELFIES_PER_REQUEST = 3
 
 
 def verify_internal_secret(x_internal_secret: str | None):
-    """
-    Every request must carry the shared secret configured in both this
-    service's env and the Node backend's AI_SERVICE_SHARED_SECRET.
-    This is a defense-in-depth measure — this service should also sit
-    on a private network / internal-only URL in production, never
-    exposed directly to the internet.
-    """
     if not settings.internal_shared_secret:
         logger.warning("INTERNAL_SHARED_SECRET is not set — running with NO request authentication!")
         return
@@ -43,10 +37,6 @@ async def detect_and_embed(
     image: UploadFile = File(...),
     x_internal_secret: str | None = Header(default=None, alias="X-Internal-Secret"),
 ):
-    """
-    Used for event photos. May contain zero, one, or many faces.
-    Returns one entry per detected face with bounding box + embedding.
-    """
     verify_internal_secret(x_internal_secret)
 
     contents = await image.read()
@@ -66,34 +56,35 @@ async def detect_and_embed(
 
 @app.post("/embed-selfie")
 async def embed_selfie(
-    image: UploadFile = File(...),
+    image: list[UploadFile] = File(...),
     x_internal_secret: str | None = Header(default=None, alias="X-Internal-Secret"),
 ):
     """
-    Used for participant selfies in Find My Photos. Returns a single
-    embedding for the most prominent face. The image bytes are held only
-    in memory for the duration of this request and are never written to
-    disk or any persistent store by this service.
+    Accepts 1-3 selfie images (repeated "image" fields) and returns one
+    quality-scored result per image, so the caller can combine multiple
+    angles/expressions into a single, more robust query embedding instead
+    of relying on whichever one selfie the person happened to upload.
     """
     verify_internal_secret(x_internal_secret)
 
-    contents = await image.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image exceeds maximum allowed size")
+    if len(image) > MAX_SELFIES_PER_REQUEST:
+        raise HTTPException(status_code=400, detail=f"Send at most {MAX_SELFIES_PER_REQUEST} selfie images")
 
-    try:
-        embedding = embed_single_face(contents)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.exception("Selfie embedding failed")
-        raise HTTPException(status_code=500, detail=f"Selfie embedding failed: {e}")
-    finally:
-        # Explicit, even though `contents` goes out of scope anyway —
-        # the intent (never persist selfies) should be unmistakable here.
-        del contents
+    results = []
+    for upload in image:
+        contents = await upload.read()
+        if len(contents) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Image exceeds maximum allowed size")
+        try:
+            result = embed_single_face(contents)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.exception("Selfie embedding failed")
+            raise HTTPException(status_code=500, detail=f"Selfie embedding failed: {e}")
+        finally:
+            del contents
 
-    if embedding is None:
-        return JSONResponse({"embedding": None, "message": "No face detected"}, status_code=200)
+        results.append(result if result is not None else {"embedding": None})
 
-    return JSONResponse({"embedding": embedding})
+    return JSONResponse({"results": results})

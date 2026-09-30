@@ -1,10 +1,5 @@
 import { AppError } from "../utils/AppError.js";
 
-/**
- * Thin HTTP client for the Python AI microservice. Talks over an
- * internal-only URL secured with a shared secret header — this service
- * should never be exposed directly to the internet.
- */
 const aiFetch = async (path, options = {}) => {
   const baseUrl = process.env.AI_SERVICE_URL;
   if (!baseUrl) {
@@ -31,11 +26,6 @@ const aiFetch = async (path, options = {}) => {
   return res.json();
 };
 
-/**
- * Sends a processed event-photo buffer to the AI service for face
- * detection + embedding generation. Returns an array of
- * { faceIndex, boundingBox, embedding } for every face found.
- */
 export const detectFacesAndEmbed = async (imageBuffer) => {
   const form = new FormData();
   form.append("image", new Blob([imageBuffer]), "photo.jpg");
@@ -44,29 +34,43 @@ export const detectFacesAndEmbed = async (imageBuffer) => {
 };
 
 /**
- * Sends a transient selfie buffer to generate a single query embedding.
- * The selfie itself is never persisted by the backend or the AI service —
- * only the resulting embedding vector is returned and used in-memory.
+ * Sends 1-3 selfie buffers and combines them into a single query
+ * embedding. Low-quality faces (too small, too blurry/angled per the AI
+ * service's own detector confidence) are dropped before averaging, since
+ * one bad selfie would otherwise drag the whole query vector off target.
+ * Averaging + re-normalizing multiple good selfies produces a more
+ * robust query than any single one — it smooths out lighting, expression,
+ * and slight angle differences between shots.
  */
-export const embedSelfie = async (selfieBuffer) => {
+export const embedSelfies = async (selfieBuffers) => {
   const form = new FormData();
-  form.append("image", new Blob([selfieBuffer]), "selfie.jpg");
+  selfieBuffers.forEach((buf, i) => form.append("image", new Blob([buf]), `selfie_${i}.jpg`));
 
-  const result = await aiFetch("/embed-selfie", { method: "POST", body: form });
-  if (!result.embedding) {
-    throw new AppError("No face detected in the selfie. Please try a clearer photo.", 422, "NO_FACE_DETECTED");
+  const { results } = await aiFetch("/embed-selfie", { method: "POST", body: form });
+
+  const usable = results.filter((r) => r.embedding && !r.lowQuality);
+
+  if (usable.length === 0) {
+    const anyFaceAtAll = results.some((r) => r.embedding);
+    throw new AppError(
+      anyFaceAtAll
+        ? "Selfie quality is too low to search reliably — try a closer, front-facing, well-lit photo."
+        : "No face detected in the selfie. Please try a clearer photo.",
+      422,
+      "NO_USABLE_FACE"
+    );
   }
-  return result.embedding;
+
+  const dim = usable[0].embedding.length;
+  const sum = new Array(dim).fill(0);
+  usable.forEach((r) => r.embedding.forEach((v, i) => { sum[i] += v; }));
+  const mean = sum.map((v) => v / usable.length);
+  const norm = Math.sqrt(mean.reduce((s, v) => s + v * v, 0)) || 1;
+  return mean.map((v) => v / norm);
 };
 
-/**
- * Cosine similarity between two equal-length embedding vectors.
- * Used to compare a selfie embedding against stored event embeddings.
- */
 export const cosineSimilarity = (a, b) => {
-  let dot = 0,
-    normA = 0,
-    normB = 0;
+  let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];

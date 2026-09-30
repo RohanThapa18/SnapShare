@@ -1,30 +1,23 @@
 import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
-import { FaceEmbedding, Photo, EventParticipant, Purchase, MyPhotosCollection, Like, Favourite } from "../models/index.js";
-import { embedSelfie, cosineSimilarity } from "../services/aiService.js";
+import { FaceEmbedding, Photo, EventParticipant, Purchase, MyPhotosCollection } from "../models/index.js";
+import { embedSelfies, cosineSimilarity } from "../services/aiService.js";
 import { getOptimizedUrl, getWatermarkedUrl } from "../services/cloudinaryService.js";
 import { AppError } from "../utils/AppError.js";
 
-const DEFAULT_THRESHOLD = 0.5;
+// A match at or above this is shown as a confident "this is you" result.
+const HIGH_CONFIDENCE_THRESHOLD = Number(process.env.FACE_MATCH_THRESHOLD) || 0.5;
+// Below HIGH but at or above this, still shown, just in a separate
+// "possible matches" section — catches genuine matches at an angle or
+// with a partially obscured face that a single hard cutoff would drop
+// silently. Below this floor is noise and is excluded entirely.
+const POSSIBLE_MATCH_FLOOR = Number(process.env.FACE_MATCH_FLOOR) || (HIGH_CONFIDENCE_THRESHOLD - 0.12);
 
-/**
- * "Find My Photos" — the standout SnapShare feature.
- *
- * Privacy/isolation guarantees enforced here, not just assumed:
- * 1. Caller must have joined the event (checked below, independent of
- *    any route-level membership middleware, so this logic is safe even
- *    if reused elsewhere).
- * 2. Every embedding query is filtered by eventId — never a global scan.
- * 3. The selfie buffer is used only in-memory and discarded after the
- *    request; it is never written to disk or Cloudinary.
- * 4. Raw embedding vectors are never included in the response — only
- *    matching photo metadata and a similarity score.
- */
 export const findMyPhotos = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
 
-  if (!req.file) {
-    throw new AppError("Selfie image is required", 400, "NO_SELFIE");
+  if (!req.files?.length) {
+    throw new AppError("At least one selfie image is required", 400, "NO_SELFIE");
   }
 
   const isMember = await EventParticipant.exists({ eventId, userId: req.user.id });
@@ -32,12 +25,11 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
     throw new AppError("You must join this event before using Find My Photos", 403, "NOT_EVENT_MEMBER");
   }
 
-  // Generate the query embedding — selfie buffer never persisted anywhere
-  const queryEmbedding = await embedSelfie(req.file.buffer);
+  // Selfie buffers are used only in-memory for this request and combined
+  // into one query embedding — never persisted anywhere, individually or
+  // combined.
+  const queryEmbedding = await embedSelfies(req.files.map((f) => f.buffer));
 
-  const threshold = Number(process.env.FACE_MATCH_THRESHOLD) || DEFAULT_THRESHOLD;
-
-  // eventId scoping is mandatory and non-optional here
   const embeddings = await FaceEmbedding.find({ eventId: new mongoose.Types.ObjectId(eventId) }).select(
     "+embedding photoId"
   );
@@ -46,7 +38,7 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
 
   for (const doc of embeddings) {
     const similarity = cosineSimilarity(queryEmbedding, doc.embedding);
-    if (similarity >= threshold) {
+    if (similarity >= POSSIBLE_MATCH_FLOOR) {
       const key = doc.photoId.toString();
       const existing = matchedPhotoIds.get(key);
       if (!existing || similarity > existing) {
@@ -55,11 +47,6 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
     }
   }
 
-  // Persist this search as the user's "My Photos" collection for this
-  // event — upserted, so re-running the search replaces rather than
-  // duplicates it. Lets the user come back later and browse/download
-  // without re-uploading a selfie. Stores references only, never
-  // binary data.
   await MyPhotosCollection.findOneAndUpdate(
     { eventId, userId: req.user.id },
     {
@@ -83,16 +70,11 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
 
   const purchases = await Purchase.find({ userId: req.user.id, eventId }).select("photoId");
   const purchasedIds = new Set(purchases.map((p) => p.photoId?.toString()));
-  const matchedIds = [...matchedPhotoIds.keys()];
-  const [likes, favourites] = await Promise.all([
-    Like.find({ userId: req.user.id, photoId: { $in: matchedIds } }).select("photoId"),
-    Favourite.find({ userId: req.user.id, photoId: { $in: matchedIds } }).select("photoId"),
-  ]);
-  const likedIds = new Set(likes.map((l) => l.photoId.toString()));
-  const favouritedIds = new Set(favourites.map((f) => f.photoId.toString()));
+
   const results = photos
     .map((photo) => {
       const isPurchased = purchasedIds.has(photo._id.toString());
+      const confidence = Math.round(matchedPhotoIds.get(photo._id.toString()) * 100) / 100;
       return {
         ...photo,
         url:
@@ -100,9 +82,8 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
             ? getWatermarkedUrl(photo.cloudinaryPublicId)
             : getOptimizedUrl(photo.cloudinaryPublicId),
         purchased: photo.isPaid ? isPurchased : true,
-        confidence: Math.round(matchedPhotoIds.get(photo._id.toString()) * 100) / 100,
-        likedByMe: likedIds.has(photo._id.toString()),
-        favouritedByMe: favouritedIds.has(photo._id.toString()),
+        confidence,
+        tier: confidence >= HIGH_CONFIDENCE_THRESHOLD ? "high" : "possible",
       };
     })
     .sort((a, b) => b.confidence - a.confidence);
