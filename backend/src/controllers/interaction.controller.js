@@ -1,10 +1,23 @@
 import asyncHandler from "express-async-handler";
-import { Like, Favourite, Photo, Purchase } from "../models/index.js";
+import { Like, Favourite, Photo, Purchase, EventParticipant } from "../models/index.js";
 import { AppError } from "../utils/AppError.js";
 import { getWatermarkedUrl } from "../services/cloudinaryService.js";
 
+
+
+const requirePhotoMembership = async (photoId, userId) => {
+  const photo = await Photo.findById(photoId).select("eventId");
+  if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
+
+  const membership = await EventParticipant.findOne({ eventId: photo.eventId, userId });
+  if (!membership) {
+    throw new AppError("You must join this event first", 403, "NOT_EVENT_MEMBER");
+  }
+  return photo;
+};
 export const likePhoto = asyncHandler(async (req, res) => {
   const { photoId } = req.params;
+  await requirePhotoMembership(photoId, req.user.id);
   try {
     await Like.create({ photoId, userId: req.user.id });
     await Photo.findByIdAndUpdate(photoId, { $inc: { likeCount: 1 } });
@@ -17,6 +30,7 @@ export const likePhoto = asyncHandler(async (req, res) => {
 
 export const unlikePhoto = asyncHandler(async (req, res) => {
   const { photoId } = req.params;
+  await requirePhotoMembership(photoId, req.user.id);
   const deleted = await Like.findOneAndDelete({ photoId, userId: req.user.id });
   if (deleted) await Photo.findByIdAndUpdate(photoId, { $inc: { likeCount: -1 } });
   res.status(200).json({ success: true, message: "Unliked" });
@@ -24,6 +38,7 @@ export const unlikePhoto = asyncHandler(async (req, res) => {
 
 export const favouritePhoto = asyncHandler(async (req, res) => {
   const { photoId } = req.params;
+  await requirePhotoMembership(photoId, req.user.id);
   try {
     await Favourite.create({ photoId, userId: req.user.id });
     await Photo.findByIdAndUpdate(photoId, { $inc: { favouriteCount: 1 } });
@@ -36,6 +51,7 @@ export const favouritePhoto = asyncHandler(async (req, res) => {
 
 export const unfavouritePhoto = asyncHandler(async (req, res) => {
   const { photoId } = req.params;
+  await requirePhotoMembership(photoId, req.user.id);
   const deleted = await Favourite.findOneAndDelete({ photoId, userId: req.user.id });
   if (deleted) await Photo.findByIdAndUpdate(photoId, { $inc: { favouriteCount: -1 } });
   res.status(200).json({ success: true, message: "Removed from favourites" });
