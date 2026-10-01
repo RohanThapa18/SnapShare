@@ -28,6 +28,16 @@ const uploader = multer({
     files: MAX_FILES_PER_UPLOAD,
   },
 });
+const coverUploader = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+    files: 1,
+  },
+});
+
+export const uploadCoverImage = coverUploader.single("coverImage");
 
 export const uploadSingle = uploader.single("photo");
 export const uploadMultiple = uploader.array("photos", MAX_FILES_PER_UPLOAD);
