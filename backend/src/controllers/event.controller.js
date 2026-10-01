@@ -15,7 +15,10 @@ import {
   Favourite,
   Download,
 } from "../models/index.js";
-import { deleteCloudinaryAsset } from "../services/cloudinaryService.js";
+import {
+  deleteCloudinaryAsset,
+  uploadToCloudinary,
+} from "../services/cloudinaryService.js";
 import { maskEmail } from "../utils/maskEmail.js";
 import { AppError } from "../utils/AppError.js";
 import { encryptPasscode, decryptPasscode } from "../utils/passcodeCipher.js";
@@ -37,44 +40,110 @@ const createSlug = (text) => {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 };
+
 export const createEvent = asyncHandler(async (req, res) => {
   const { title, description, date, location, expiryDate } = req.body;
-  const slug = createSlug(title);
+
   if (new Date(expiryDate) <= new Date(date)) {
-    throw new AppError("Expiry date must be after the event date", 400, "INVALID_EXPIRY");
+    throw new AppError(
+      "Expiry date must be after the event date",
+      400,
+      "INVALID_EXPIRY"
+    );
   }
 
-  const plainPasscode = generatePasscode();
-  const passcodeHash = await bcrypt.hash(plainPasscode, PASSCODE_SALT_ROUNDS);
-  const passcodeEncrypted = encryptPasscode(plainPasscode);
-  const joinToken = generateJoinToken();
-  const photographerJoinToken = generateJoinToken();
+  const eventId = new mongoose.Types.ObjectId();
+  let coverImagePublicId = null;
+  let eventCreated = false;
 
-  const event = await Event.create({
-    title,
-    slug,
-    description,
-    date,
-    location,
-    expiryDate,
-    organizerId: req.user.id,
-    passcodeHash,
-    passcodeEncrypted,
-    joinToken,
-    photographerJoinToken,
-  });
+  try {
+    // Generate event credentials.
+    const plainPasscode = generatePasscode();
+    const passcodeHash = await bcrypt.hash(
+      plainPasscode,
+      PASSCODE_SALT_ROUNDS
+    );
+    const passcodeEncrypted = encryptPasscode(plainPasscode);
+    const joinToken = generateJoinToken();
+    const photographerJoinToken = generateJoinToken();
 
-  // Organizer automatically counts as a participant of their own event
-  await EventParticipant.create({ eventId: event._id, userId: req.user.id });
+    // Upload the optional event cover image.
+    let coverImageUrl = null;
 
-  res.status(201).json({
-    success: true,
-    message: "Event created. Save this passcode now — it will not be shown again.",
-    data: {
-      event,
-      passcode: plainPasscode, // shown exactly once, never persisted in plaintext
-    },
-  });
+    if (req.file) {
+      const uploaded = await uploadToCloudinary(req.file.buffer, {
+        eventId: eventId.toString(),
+        folder: "covers",
+      });
+
+      coverImageUrl = uploaded.secure_url;
+      coverImagePublicId = uploaded.public_id;
+    }
+
+    // Create the event.
+    const event = await Event.create({
+      _id: eventId,
+      title,
+      slug: createSlug(title),
+      description,
+      date,
+      location,
+      expiryDate,
+      organizerId: req.user.id,
+      passcodeHash,
+      passcodeEncrypted,
+      joinToken,
+      photographerJoinToken,
+      coverImageUrl,
+      coverImagePublicId,
+    });
+
+    eventCreated = true;
+
+    // Add the organizer as a participant.
+    await EventParticipant.create({
+      eventId: event._id,
+      userId: req.user.id,
+    });
+
+    // Return the created event and its passcode.
+    res.status(201).json({
+      success: true,
+      message:
+        "Event created. Save this passcode now — it will not be shown again.",
+      data: {
+        event,
+        passcode: plainPasscode,
+      },
+    });
+  } catch (error) {
+    // Clean up database records if creation was only partially completed.
+    if (eventCreated) {
+      await Promise.all([
+        EventParticipant.deleteMany({ eventId }),
+        Event.findByIdAndDelete(eventId),
+      ]).catch((cleanupError) => {
+        console.error(
+          "Failed to clean up partially created event:",
+          cleanupError.message
+        );
+      });
+    }
+
+    // Clean up the uploaded cover image, if one exists.
+    if (coverImagePublicId) {
+      await deleteCloudinaryAsset(coverImagePublicId).catch(
+        (cleanupError) => {
+          console.error(
+            "Failed to clean up event cover image:",
+            cleanupError.message
+          );
+        }
+      );
+    }
+
+    throw error;
+  }
 });
 
 export const getEvent = asyncHandler(async (req, res) => {
