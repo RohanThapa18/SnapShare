@@ -80,6 +80,10 @@ router.put(
   eventController.updateEvent
 );
 
+router.put("/:id/cover", requireEventOwner, uploadCoverImage, eventController.updateEventCover);
+
+router.delete("/:id/cover", requireEventOwner, eventController.removeEventCover);
+
 router.delete("/:id", requireEventOwner, eventController.deleteEvent);
 
 router.get("/:id/participants", requireEventParticipant, eventController.getParticipants);

@@ -35,7 +35,7 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     width: processed.width,
     height: processed.height,
     fileSizeBytes: processed.sizeBytes,
-    isPaid: req.body.isPaid === true || req.body.isPaid === "true",
+    isPaid: Boolean(isPaid),
     price: isPaid ? Number(price) || 0 : 0,
   });
 
@@ -49,11 +49,12 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
 export const uploadOfficialPhotos = asyncHandler(async (req, res) => {
   if (!req.files?.length) throw new AppError("No files uploaded", 400, "NO_FILES");
 
-const isPaid = req.body.isPaid === true || req.body.isPaid === "true";
-const price = Number(req.body.price) || 0;
-if (isPaid && price <= 0) {
-  throw new AppError("Paid photos need a price greater than 0", 400, "INVALID_PRICE");
-}
+  const isPaid = req.body.isPaid === true || req.body.isPaid === "true";
+  const price = Number(req.body.price) || 0;
+  if (isPaid && price <= 0) {
+    throw new AppError("Paid photos need a price greater than 0", 400, "INVALID_PRICE");
+  }
+
   const photos = [];
   for (const file of req.files) {
     photos.push(

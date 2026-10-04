@@ -82,3 +82,11 @@ export const getPhotographerPasscode = (id) =>
 
 export const regeneratePhotographerPasscode = (id) =>
   api.post(`/events/${id}/photographer-passcode/regenerate`);
+
+export const updateEventCover = (id, file) => {
+  const formData = new FormData();
+  formData.append("coverImage", file);
+  return api.put(`/events/${id}/cover`, formData);
+};
+
+export const removeEventCover = (id) => api.delete(`/events/${id}/cover`);

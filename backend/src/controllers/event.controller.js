@@ -18,6 +18,7 @@ import {
 import {
   deleteCloudinaryAsset,
   uploadToCloudinary,
+  getOptimizedUrl,
 } from "../services/cloudinaryService.js";
 import { maskEmail } from "../utils/maskEmail.js";
 import { AppError } from "../utils/AppError.js";
@@ -60,13 +61,27 @@ const ensureEventCode = async (event) => {
 };
 
 const generateJoinToken = () => crypto.randomBytes(24).toString("base64url");
-const createSlug = (text) => {
-  return text
+const createSlug = (text) =>
+  text
     .toString()
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "") || "event"; // symbol-only / non-latin titles would otherwise give ""
+
+// Plain slug when it's free ("summer-party"); otherwise add a short random
+// suffix ("summer-party-a3f9c1"). The eventCode fallback can't collide.
+const createUniqueSlug = async (title, eventCode) => {
+  const base = createSlug(title);
+  if (!(await Event.exists({ slug: base }))) return base;
+
+  for (let i = 0; i < 5; i++) {
+    const candidate = `${base}-${crypto.randomBytes(3).toString("hex")}`;
+    if (!(await Event.exists({ slug: candidate }))) return candidate;
+  }
+  return `${base}-${eventCode.toLowerCase()}`;
 };
 
 export const createEvent = asyncHandler(async (req, res) => {
@@ -116,7 +131,7 @@ export const createEvent = asyncHandler(async (req, res) => {
       _id: eventId,
       eventCode,
       title,
-      slug: createSlug(title),
+      slug: await createUniqueSlug(title, eventCode),
       description,
       date,
       location,
@@ -299,6 +314,57 @@ export const updateEvent = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({ success: true, message: "Event updated", data: { event } });
+});
+
+export const updateEventCover = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new AppError("Please choose an image to upload", 400, "NO_FILE");
+  }
+
+  const event = await Event.findById(req.params.id).select("coverImagePublicId");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  const uploaded = await uploadToCloudinary(req.file.buffer, {
+    eventId: req.params.id,
+    folder: "covers",
+  });
+
+  const oldPublicId = event.coverImagePublicId;
+
+  try {
+    event.coverImageUrl = getOptimizedUrl(uploaded.public_id, { width: 1600 });
+    event.coverImagePublicId = uploaded.public_id;
+    await event.save();
+  } catch (err) {
+    await deleteCloudinaryAsset(uploaded.public_id).catch(() => {});
+    throw err;
+  }
+
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+
+  res.status(200).json({
+    success: true,
+    message: "Cover image updated",
+    data: { coverImageUrl: event.coverImageUrl },
+  });
+});
+
+export const removeEventCover = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id).select("coverImagePublicId");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  const oldPublicId = event.coverImagePublicId;
+  event.coverImageUrl = null;
+  event.coverImagePublicId = null;
+  await event.save();
+
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+
+  res.status(200).json({
+    success: true,
+    message: "Cover image removed",
+    data: { coverImageUrl: null },
+  });
 });
 
 export const deleteEvent = asyncHandler(async (req, res) => {
