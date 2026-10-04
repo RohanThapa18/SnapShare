@@ -268,12 +268,12 @@ export const updateEvent = asyncHandler(async (req, res) => {
 export const deleteEvent = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
 
-  const photos = await Photo.find({ eventId }).select("_id cloudinaryPublicId");
+  const photos = await Photo.find({ eventId }).select("_id cloudinaryPublicId deliveryType");
   const photoIds = photos.map((p) => p._id);
 
   // Cloudinary cleanup first — if this fails for a given asset we still
   // want the DB cleanup below to proceed, so failures are swallowed here.
-  await Promise.all(photos.map((p) => deleteCloudinaryAsset(p.cloudinaryPublicId).catch(() => { })));
+  await Promise.all(photos.map((p) => deleteCloudinaryAsset(p.cloudinaryPublicId, p.deliveryType).catch(() => { })));
 
   await Promise.all([
     Photo.deleteMany({ eventId }),

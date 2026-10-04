@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import { Photo, Purchase, Download, Like, Favourite, FaceEmbedding, EventParticipant } from "../models/index.js";
+import { Photo, Event, Purchase, Download, Like, Favourite, FaceEmbedding, EventParticipant } from "../models/index.js";
 import { processImage } from "../services/imageService.js";
 import {
   uploadToCloudinary,
@@ -10,15 +10,18 @@ import {
   getInternalFetchUrl,
   checkExistingPublicIds,
 } from "../services/cloudinaryService.js";
+import { presentPhoto } from "../services/photoPresenter.js";
 import { enqueuePhotoForAiProcessing } from "../queues/aiProcessing.queue.js";
 import { AppError } from "../utils/AppError.js";
 import { ALBUM_TYPE } from "../constants/enums.js";
 
 const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) => {
+  const type = "authenticated";
   const processed = await processImage(file.buffer);
   const cloudinaryResult = await uploadToCloudinary(processed.buffer, {
     eventId,
     folder: album.toLowerCase(),
+    type,
   });
 
   const photo = await Photo.create({
@@ -26,12 +29,13 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     uploaderId,
     album,
     cloudinaryPublicId: cloudinaryResult.public_id,
-    url: getOptimizedUrl(cloudinaryResult.public_id),
-    thumbnailUrl: getThumbnailUrl(cloudinaryResult.public_id),
+    deliveryType: type,
+    url: getOptimizedUrl(cloudinaryResult.public_id, { type }),
+    thumbnailUrl: getThumbnailUrl(cloudinaryResult.public_id, { type }),
     width: processed.width,
     height: processed.height,
     fileSizeBytes: processed.sizeBytes,
-    isPaid: Boolean(isPaid),
+    isPaid: req.body.isPaid === true || req.body.isPaid === "true",
     price: isPaid ? Number(price) || 0 : 0,
   });
 
@@ -45,7 +49,11 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
 export const uploadOfficialPhotos = asyncHandler(async (req, res) => {
   if (!req.files?.length) throw new AppError("No files uploaded", 400, "NO_FILES");
 
-  const { isPaid, price } = req.body;
+const isPaid = req.body.isPaid === true || req.body.isPaid === "true";
+const price = Number(req.body.price) || 0;
+if (isPaid && price <= 0) {
+  throw new AppError("Paid photos need a price greater than 0", 400, "INVALID_PRICE");
+}
   const photos = [];
   for (const file of req.files) {
     photos.push(
@@ -120,17 +128,11 @@ export const listPhotos = asyncHandler(async (req, res) => {
     favouritedPhotoIds = new Set(favourites.map((f) => f.photoId.toString()));
   }
 
-  const enriched = photos.map((photo) => {
-    const base = {
-      ...photo,
-      likedByMe: likedPhotoIds.has(photo._id.toString()),
-      favouritedByMe: favouritedPhotoIds.has(photo._id.toString()),
-    };
-    if (photo.isPaid && !purchasedPhotoIds.has(photo._id.toString())) {
-      return { ...base, url: getWatermarkedUrl(photo.cloudinaryPublicId), purchased: false };
-    }
-    return { ...base, purchased: photo.isPaid };
-  });
+   const enriched = photos.map((photo) => ({
+    ...presentPhoto(photo, { purchased: purchasedPhotoIds.has(photo._id.toString()) }),
+    likedByMe: likedPhotoIds.has(photo._id.toString()),
+    favouritedByMe: favouritedPhotoIds.has(photo._id.toString()),
+  }));
 
   const total = await Photo.countDocuments(filter);
 
@@ -157,7 +159,7 @@ export const deletePhoto = asyncHandler(async (req, res) => {
     );
   }
 
-  await deleteCloudinaryAsset(photo.cloudinaryPublicId);
+await deleteCloudinaryAsset(photo.cloudinaryPublicId, photo.deliveryType);
   await Promise.all([
     Photo.findByIdAndDelete(photo._id),
     Like.deleteMany({ photoId: photo._id }),
@@ -179,7 +181,7 @@ export const updatePhotoMeta = asyncHandler(async (req, res) => {
 
   // Only official-album photographer uploads can carry a price
   if (photo.album === ALBUM_TYPE.OFFICIAL) {
-    if (req.body.isPaid !== undefined) photo.isPaid = Boolean(req.body.isPaid);
+    if (req.body.isPaid !== undefined) photo.isPaid = req.body.isPaid === true || req.body.isPaid === "true";
     if (req.body.price !== undefined) photo.price = Number(req.body.price) || 0;
   }
 
@@ -268,3 +270,5 @@ export const syncEventPhotosWithCloudinary = asyncHandler(async (req, res) => {
     data: { checked: photos.length, removed: orphaned.length },
   });
 });
+
+

@@ -34,11 +34,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     if (!album) throw new AppError("album is required for album purchases", 400, "ALBUM_REQUIRED");
 
     const photos = await Photo.find({
-  eventId,
-  album,
-  isPaid: true,
-  price: { $gt: 0 },
-});
+      eventId,
+      album,
+      isPaid: true,
+      price: { $gt: 0 },
+    });
     if (!photos.length) throw new AppError("No paid photos found in this album", 404, "NO_PAID_PHOTOS");
 
     photographerId = photos[0].uploaderId;
@@ -87,7 +87,12 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
   const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
   if (!payment) throw new AppError("Payment record not found", 404, "PAYMENT_NOT_FOUND");
-
+  if (payment.userId.toString() !== req.user.id) {
+    throw new AppError("Not your payment", 403, "FORBIDDEN");
+  }
+  if (payment.status === PAYMENT_STATUS.SUCCESS) {
+    return res.status(200).json({ success: true, message: "Already verified" });
+  }
   const isValid = verifyRazorpaySignature({
     orderId: razorpay_order_id,
     paymentId: razorpay_payment_id,
@@ -134,7 +139,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
         amountPaid: photo.price,
       })),
       { ordered: false } // tolerate duplicates if user retries verification
-    ).catch(() => {}); // unique index on (userId, photoId) guards against double-grants
+    ).catch(() => { }); // unique index on (userId, photoId) guards against double-grants
   }
 
   res.status(200).json({ success: true, message: "Payment verified, content unlocked" });

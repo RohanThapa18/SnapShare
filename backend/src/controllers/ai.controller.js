@@ -4,6 +4,7 @@ import { FaceEmbedding, Photo, EventParticipant, Purchase, MyPhotosCollection } 
 import { embedSelfies, cosineSimilarity } from "../services/aiService.js";
 import { getOptimizedUrl, getWatermarkedUrl } from "../services/cloudinaryService.js";
 import { AppError } from "../utils/AppError.js";
+import { presentPhoto } from "../services/photoPresenter.js";
 
 // A match at or above this is shown as a confident "this is you" result.
 const HIGH_CONFIDENCE_THRESHOLD = Number(process.env.FACE_MATCH_THRESHOLD) || 0.5;
@@ -73,15 +74,9 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
 
   const results = photos
     .map((photo) => {
-      const isPurchased = purchasedIds.has(photo._id.toString());
       const confidence = Math.round(matchedPhotoIds.get(photo._id.toString()) * 100) / 100;
       return {
-        ...photo,
-        url:
-          photo.isPaid && !isPurchased
-            ? getWatermarkedUrl(photo.cloudinaryPublicId)
-            : getOptimizedUrl(photo.cloudinaryPublicId),
-        purchased: photo.isPaid ? isPurchased : true,
+        ...presentPhoto(photo, { purchased: purchasedIds.has(photo._id.toString()) }),
         confidence,
         tier: confidence >= HIGH_CONFIDENCE_THRESHOLD ? "high" : "possible",
       };

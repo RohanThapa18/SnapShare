@@ -15,6 +15,7 @@ const photoSchema = new mongoose.Schema(
     // Cloudinary is the source of truth for the binary asset.
     // MongoDB only ever stores references + metadata.
     cloudinaryPublicId: { type: String, required: true },
+    deliveryType: { type: String, enum: ["upload", "authenticated"], default: "upload" },
     url: { type: String, required: true }, // optimized delivery URL
     thumbnailUrl: { type: String, required: true },
 

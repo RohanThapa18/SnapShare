@@ -1,12 +1,7 @@
 import cloudinary, { isCloudinaryConfigured } from "../config/cloudinary.js";
 import { AppError } from "../utils/AppError.js";
 
-/**
- * Uploads a processed image buffer to Cloudinary under a folder scoped
- * to the event, so assets are easy to locate/clean up per event.
- * Returns the public ID + delivery URLs needed for the Photo document.
- */
-export const uploadToCloudinary = async (buffer, { eventId, folder = "photos" }) => {
+export const uploadToCloudinary = async (buffer, { eventId, folder = "photos", type = "upload" }) => {
   if (!isCloudinaryConfigured()) {
     throw new AppError(
       "Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env.",
@@ -20,6 +15,7 @@ export const uploadToCloudinary = async (buffer, { eventId, folder = "photos" })
       {
         folder: `snapshare/${eventId}/${folder}`,
         resource_type: "image",
+        type,
       },
       (error, result) => {
         if (error) return reject(error);
@@ -30,17 +26,19 @@ export const uploadToCloudinary = async (buffer, { eventId, folder = "photos" })
   });
 };
 
-export const deleteCloudinaryAsset = async (publicId) => {
+export const deleteCloudinaryAsset = async (publicId, type = "upload") => {
   if (!publicId || !isCloudinaryConfigured()) return;
-  await cloudinary.uploader.destroy(publicId);
+  await cloudinary.uploader.destroy(publicId, { type, invalidate: true });
 };
 
-/**
- * Builds an optimized delivery URL (auto format/quality, capped width)
- * for gallery display — never the raw original.
- */
-export const getOptimizedUrl = (publicId, { width = 1600 } = {}) =>
+// "authenticated" assets are only reachable through signed URLs; "upload"
+// assets (legacy photos, event cover images) are publicly reachable.
+const deliveryOpts = (type = "upload") =>
+  type === "authenticated" ? { type: "authenticated", sign_url: true } : {};
+
+export const getOptimizedUrl = (publicId, { width = 1600, type } = {}) =>
   cloudinary.url(publicId, {
+    ...deliveryOpts(type),
     secure: true,
     quality: "auto",
     fetch_format: "auto",
@@ -48,13 +46,9 @@ export const getOptimizedUrl = (publicId, { width = 1600 } = {}) =>
     crop: "limit",
   });
 
-/**
- * Grid-sized preview — capped width only, no forced aspect ratio. The
- * full image is shown, just resized down for fast loading, rather than
- * center-cropped into a square.
- */
-export const getThumbnailUrl = (publicId) =>
+export const getThumbnailUrl = (publicId, { type } = {}) =>
   cloudinary.url(publicId, {
+    ...deliveryOpts(type),
     secure: true,
     quality: "auto",
     fetch_format: "auto",
@@ -62,26 +56,17 @@ export const getThumbnailUrl = (publicId) =>
     crop: "limit",
   });
 
-/**
- * Watermarked preview for paid photos — applied via Cloudinary
- * transformation only, at delivery time. The original asset stored in
- * Cloudinary is never modified.
- */
-export const getWatermarkedUrl = (publicId) =>
+export const getWatermarkedUrl = (publicId, { width = 1200, type } = {}) =>
   cloudinary.url(publicId, {
+    ...deliveryOpts(type),
     secure: true,
     quality: "auto",
     fetch_format: "auto",
-    width: 1200,
+    width,
     crop: "limit",
     transformation: [
       {
-        overlay: {
-          font_family: "Arial",
-          font_size: 40,
-          font_weight: "bold",
-          text: "SnapShare Preview",
-        },
+        overlay: { font_family: "Arial", font_size: 40, font_weight: "bold", text: "SnapShare Preview" },
         color: "#FFFFFF",
         opacity: 45,
         gravity: "center",
@@ -90,15 +75,7 @@ export const getWatermarkedUrl = (publicId) =>
     ],
   });
 
-/**
- * Checks which of the given Cloudinary public IDs still actually exist
- * on Cloudinary. Used to detect and clean up Photo documents whose
- * underlying asset was deleted directly on Cloudinary (bypassing our
- * API), which would otherwise leave broken, undeletable-looking photos
- * stuck in the app forever. Batches in groups of 100 (Cloudinary Admin
- * API limit per resources_by_ids call).
- */
-export const checkExistingPublicIds = async (publicIds) => {
+export const checkExistingPublicIds = async (publicIds, type = "upload") => {
   if (!isCloudinaryConfigured() || publicIds.length === 0) return new Set(publicIds);
 
   const existing = new Set();
@@ -107,12 +84,9 @@ export const checkExistingPublicIds = async (publicIds) => {
   for (let i = 0; i < publicIds.length; i += BATCH_SIZE) {
     const batch = publicIds.slice(i, i + BATCH_SIZE);
     try {
-      const result = await cloudinary.api.resources_by_ids(batch, { resource_type: "image" });
+      const result = await cloudinary.api.resources_by_ids(batch, { resource_type: "image", type });
       result.resources.forEach((r) => existing.add(r.public_id));
     } catch (err) {
-      // If the Admin API call itself fails (rate limit, network blip),
-      // don't treat that as "these photos don't exist" — assume they
-      // still do, so we never delete data based on an inconclusive check.
       console.error("[cloudinary] resources_by_ids check failed, assuming batch still exists:", err.message);
       batch.forEach((id) => existing.add(id));
     }
@@ -121,21 +95,24 @@ export const checkExistingPublicIds = async (publicIds) => {
   return existing;
 };
 
-/**
- * Plain full-resolution URL with no attachment flag — used internally
- * (e.g. the AI worker fetching image bytes for face detection), where
- * we just want the raw image, not a download-triggering response header.
- */
-export const getInternalFetchUrl = (publicId) =>
-  cloudinary.url(publicId, { secure: true, quality: "auto:best" });
+// Takes Photo docs (needs cloudinaryPublicId + deliveryType). Checks each
+// delivery type separately, otherwise "authenticated" photos would look deleted.
+export const checkExistingPhotos = async (photos) => {
+  const byType = {};
+  photos.forEach((p) => {
+    const t = p.deliveryType || "upload";
+    (byType[t] ||= []).push(p.cloudinaryPublicId);
+  });
+  const existing = new Set();
+  for (const [type, ids] of Object.entries(byType)) {
+    (await checkExistingPublicIds(ids, type)).forEach((id) => existing.add(id));
+  }
+  return existing;
+};
 
-/**
- * Returns the true original, full-resolution delivery URL, flagged so
- * the browser downloads it directly to disk (Content-Disposition:
- * attachment) instead of just opening it in a new tab. Only ever called
- * by controllers AFTER verifying the requester purchased the photo (or
- * it's free) — never exposed unconditionally.
- */
+export const getInternalFetchUrl = (publicId, { type } = {}) =>
+  cloudinary.url(publicId, { ...deliveryOpts(type), secure: true, quality: "auto:best" });
+
 export const getOriginalUrl = (publicId, { filename } = {}) =>
   cloudinary.url(publicId, {
     secure: true,

@@ -21,6 +21,8 @@ import {
   joinAsPhotographerSchema,
 } from "../validators/event.validators.js";
 
+
+
 const router = Router();
 
 router.use(requireAuth);
