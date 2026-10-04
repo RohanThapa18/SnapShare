@@ -21,6 +21,7 @@ import Modal from "../components/Modal";
 import PasscodeCard from "../components/PasscodeCard";
 import { formatEventCode } from "../utils/eventCode";
 import EventIdCard from "../components/EventIdCard";
+import CoverImageCard from "../components/CoverImageCard";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
 import { nowLocalInput } from "../utils/datetime";
@@ -360,6 +361,11 @@ export default function EventDetails() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <BackButton />
+      {event.coverImageUrl && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-border">
+          <img src={event.coverImageUrl} alt="" className="h-40 w-full object-cover sm:h-56" />
+        </div>
+      )}
       <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-medium text-primary">{event.title}</h1>
@@ -536,6 +542,12 @@ export default function EventDetails() {
         <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
           <div className="space-y-6">
             <EventIdCard eventCode={event.eventCode} />
+            <CoverImageCard
+              eventId={eventId}
+              coverImageUrl={event.coverImageUrl}
+              onChange={(coverImageUrl) => setEvent((prev) => ({ ...prev, coverImageUrl }))}
+              onRequestConfirm={setConfirmState}
+            />
             <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
               <h3 className="font-medium mb-1 flex items-center gap-1.5">
                 <KeyRound size={16} />

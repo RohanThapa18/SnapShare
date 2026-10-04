@@ -27,9 +27,18 @@ export const enqueuePhotoForAiProcessing = async (photoId) => {
     );
     return;
   }
-  await q.add(
-    "process-photo",
-    { photoId },
-    { attempts: 3, backoff: { type: "exponential", delay: 5000 } }
-  );
+  try {
+    await q.add(
+      "process-photo",
+      { photoId },
+      { attempts: 3, backoff: { type: "exponential", delay: 5000 } }
+    );
+  } catch (err) {
+    // The photo is already saved; it just won't be face-processed until
+    // it's queued again. Never fail the upload for this.
+    console.error(
+      `[queue] Could not queue photo ${photoId} for AI processing (is Redis running?):`,
+      err.message || err.code
+    );
+  }
 };
