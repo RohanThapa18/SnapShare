@@ -17,7 +17,7 @@ const parsePathFromScan = (decodedText) => {
 
 export default function JoinAsPhotographerModal({ onClose, onJoined }) {
   const navigate = useNavigate();
-
+  const [photographerPasscode, setPhotographerPasscode] = useState("");
   const [mode, setMode] = useState("code");
   const [eventId, setEventId] = useState("");
   const [photographerToken, setPhotographerToken] = useState("");
@@ -28,17 +28,17 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
     setLoading(true);
 
     try {
-      await eventService.joinEventAsPhotographer(
+            const res = await eventService.joinEventAsPhotographerWithPasscode(
         eventId.trim(),
-        photographerToken.trim()
+        photographerPasscode.trim().toUpperCase()
       );
 
       toast.success("Joined event as photographer!");
-      onJoined(eventId.trim());
+      onJoined(res.data.data.eventId);
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          "Failed to join as photographer"
+        "Failed to join as photographer"
       );
     } finally {
       setLoading(false);
@@ -70,8 +70,7 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
       <div className="space-y-5">
         {/* Description */}
         <p className="text-sm leading-relaxed text-slate-500">
-          This is a separate code from the regular participant passcode.
-          The organizer shares this one only with official photographers.
+          Ask the organizer for the Event ID and the photographer passcode. This is a separate passcode from the regular participant one, and the organizer shares it only with official photographers.
         </p>
 
         {/* Mode tabs */}
@@ -79,11 +78,10 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
           <button
             type="button"
             onClick={() => setMode("code")}
-            className={`${tabBase} ${
-              mode === "code"
-                ? "bg-[#e99b79] text-slate-900 shadow-sm"
-                : "text-slate-500 hover:bg-white hover:text-slate-800"
-            }`}
+            className={`${tabBase} ${mode === "code"
+              ? "bg-[#e99b79] text-slate-900 shadow-sm"
+              : "text-slate-500 hover:bg-white hover:text-slate-800"
+              }`}
           >
             <Keyboard size={16} />
             Enter Code
@@ -92,11 +90,10 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
           <button
             type="button"
             onClick={() => setMode("scan")}
-            className={`${tabBase} ${
-              mode === "scan"
-                ? "bg-[#e99b79] text-slate-900 shadow-sm"
-                : "text-slate-500 hover:bg-white hover:text-slate-800"
-            }`}
+            className={`${tabBase} ${mode === "scan"
+              ? "bg-[#e99b79] text-slate-900 shadow-sm"
+              : "text-slate-500 hover:bg-white hover:text-slate-800"
+              }`}
           >
             <QrCode size={16} />
             Scan QR
@@ -120,8 +117,11 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
                 required
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
-                placeholder="Enter event ID"
-                className={inputClass}
+                                placeholder="e.g. K7QX-2PMH"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                className={`${inputClass} uppercase tracking-widest`}
               />
             </div>
 
@@ -131,17 +131,18 @@ export default function JoinAsPhotographerModal({ onClose, onJoined }) {
                 htmlFor="photographer-code"
                 className="mb-2 block text-sm font-medium text-slate-700"
               >
-                Photographer Code
+                Photographer Passcode
               </label>
 
               <input
                 id="photographer-code"
                 type="text"
                 required
-                value={photographerToken}
-                onChange={(e) => setPhotographerToken(e.target.value)}
-                placeholder="Enter photographer code"
-                className={inputClass}
+                maxLength={6}
+                value={photographerPasscode}
+                onChange={(e) => setPhotographerPasscode(e.target.value)}
+                placeholder="Enter 6-character passcode"
+                className={`${inputClass} uppercase tracking-widest`}
               />
             </div>
 

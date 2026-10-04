@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-
+import { formatEventCode } from "../utils/eventCode";
 import * as eventService from "../services/eventService";
 import BackButton from "../components/BackButton";
 import { nowLocalInput } from "../utils/datetime";
@@ -29,6 +29,7 @@ export default function CreateEvent() {
   const [loading, setLoading] = useState(false);
   const [createdEvent, setCreatedEvent] = useState(null);
   const [passcode, setPasscode] = useState("");
+  const [photographerPasscode, setPhotographerPasscode] = useState("");
   const [joinQr, setJoinQr] = useState("");
 
   const [coverImage, setCoverImage] = useState(null);
@@ -152,6 +153,7 @@ export default function CreateEvent() {
 
       setCreatedEvent(event);
       setPasscode(eventPasscode);
+      setPhotographerPasscode(responseData?.photographerPasscode ?? "");
 
       if (event.joinToken) {
         setJoinQr(
@@ -169,8 +171,8 @@ export default function CreateEvent() {
 
       toast.error(
         error?.response?.data?.message ||
-          error?.message ||
-          "Unable to create event."
+        error?.message ||
+        "Unable to create event."
       );
     } finally {
       setLoading(false);
@@ -227,10 +229,26 @@ export default function CreateEvent() {
           )}
 
           <div className="mt-6 space-y-4 text-left">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-200 hover:border-indigo-200">
+              <p className="mb-2 text-sm text-slate-500">Event ID</p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-lg font-semibold tracking-widest text-slate-900">
+                  {formatEventCode(createdEvent.eventCode)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyText(formatEventCode(createdEvent.eventCode))}
+                  className="rounded-lg p-2 text-slate-500 transition-all duration-200 hover:bg-indigo-100 hover:text-indigo-700 active:scale-95"
+                  aria-label="Copy event ID"
+                >
+                  <Copy size={18} />
+                </button>
+              </div>
+            </div>
             {passcode && (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-200 hover:border-indigo-200">
                 <p className="mb-2 text-sm text-slate-500">
-                  Event passcode
+                  Participant Passcode
                 </p>
 
                 <div className="flex items-center justify-between gap-3">
@@ -250,6 +268,25 @@ export default function CreateEvent() {
               </div>
             )}
 
+            {photographerPasscode && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-200 hover:border-indigo-200">
+                <p className="mb-2 text-sm text-slate-500">
+                  Photographer passcode
+                  <span className="ml-1 text-xs text-slate-400">(share only with your photographers)</span>
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="break-all font-mono text-lg font-semibold text-slate-900">{photographerPasscode}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyText(photographerPasscode)}
+                    className="rounded-lg p-2 text-slate-500 transition-all duration-200 hover:bg-indigo-100 hover:text-indigo-700 active:scale-95"
+                    aria-label="Copy photographer passcode"
+                  >
+                    <Copy size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
             {joinQr && (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center transition-colors duration-200 hover:border-indigo-200">
                 <p className="mb-3 text-sm font-medium text-slate-600">

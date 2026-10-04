@@ -18,6 +18,10 @@ import { triggerDownload, triggerBlobDownload, filenameFromContentDisposition } 
 import * as paymentService from "../services/paymentService";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Modal from "../components/Modal";
+import PasscodeCard from "../components/PasscodeCard";
+import { formatEventCode } from "../utils/eventCode";
+import EventIdCard from "../components/EventIdCard";
+
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
 import { nowLocalInput } from "../utils/datetime";
 export default function EventDetails() {
@@ -200,7 +204,7 @@ export default function EventDetails() {
   };
 
   const handleCopyId = async () => {
-    await navigator.clipboard.writeText(eventId);
+    await navigator.clipboard.writeText(formatEventCode(event.eventCode));
     setIdCopied(true);
     setTimeout(() => setIdCopied(false), 1500);
   };
@@ -369,13 +373,15 @@ export default function EventDetails() {
               {viewerAccess.isPhotographer && "You're a photographer for this event"}
             </p>
           )}
-          {viewerAccess.isOrganizer && (
+          {viewerAccess.isOrganizer && event.eventCode && (
             <button
               onClick={handleCopyId}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-text mt-2 transition"
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text mt-2 transition max-w-full"
+              aria-label="Copy event ID"
             >
-              {idCopied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-              Event: {event.slug}
+              {idCopied ? <Check size={12} className="text-success shrink-0" /> : <Copy size={12} className="shrink-0" />}
+              <span>Event ID:</span>
+              <span className="font-mono tracking-widest text-left">{formatEventCode(event.eventCode)}</span>
             </button>
           )}
         </div>
@@ -498,7 +504,7 @@ export default function EventDetails() {
               favouritedIds={favouritedIds}
             />
           )}
-          
+
         </div>
       )}
 
@@ -529,10 +535,11 @@ export default function EventDetails() {
       {showSettings && viewerAccess.isOrganizer && (
         <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
           <div className="space-y-6">
+            <EventIdCard eventCode={event.eventCode} />
             <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
               <h3 className="font-medium mb-1 flex items-center gap-1.5">
                 <KeyRound size={16} />
-                Event Passcode
+                Participant Passcode
               </h3>
               <p className="text-xs text-text-muted mb-4">
                 Share this with people joining as regular participants. You can come back and view it here any time —
@@ -585,7 +592,13 @@ export default function EventDetails() {
                 </button>
               )}
             </div>
-
+            <PasscodeCard
+              title="Photographer Passcode"
+              description="A separate passcode for your official photographers. They enter it with the Event ID under Join as Photographer. Don't share it with regular participants."
+              fetchPasscode={() => eventService.getPhotographerPasscode(eventId)}
+              regeneratePasscode={() => eventService.regeneratePhotographerPasscode(eventId)}
+              onRequestConfirm={setConfirmState}
+            />
             <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
               <h3 className="font-medium mb-1">Participant QR Code</h3>
               <p className="text-xs text-text-muted mb-4">Anyone who scans this joins as a regular participant.</p>
