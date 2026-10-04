@@ -28,12 +28,12 @@ export default function JoinEventModal({ onClose, onJoined }) {
     setLoading(true);
 
     try {
-      await eventService.joinEvent(eventId.trim(), {
+      const res = await eventService.joinEvent(eventId.trim(), {
         passcode: passcode.trim().toUpperCase(),
       });
 
       toast.success("Joined event!");
-      onJoined(eventId.trim());
+      onJoined(res.data.data.eventId);
     } catch (err) {
       toast.error(
         err.response?.data?.message || "Failed to join event"
@@ -69,11 +69,10 @@ export default function JoinEventModal({ onClose, onJoined }) {
           <button
             type="button"
             onClick={() => setMode("code")}
-            className={`${tabBase} ${
-              mode === "code"
-                ? "bg-[#293866] text-white shadow-sm"
-                : "text-slate-500 hover:bg-white hover:text-slate-800"
-            }`}
+            className={`${tabBase} ${mode === "code"
+              ? "bg-[#293866] text-white shadow-sm"
+              : "text-slate-500 hover:bg-white hover:text-slate-800"
+              }`}
           >
             <Keyboard size={16} />
             Enter Code
@@ -82,11 +81,10 @@ export default function JoinEventModal({ onClose, onJoined }) {
           <button
             type="button"
             onClick={() => setMode("scan")}
-            className={`${tabBase} ${
-              mode === "scan"
-                ? "bg-[#293866] text-white shadow-sm"
-                : "text-slate-500 hover:bg-white hover:text-slate-800"
-            }`}
+            className={`${tabBase} ${mode === "scan"
+              ? "bg-[#293866] text-white shadow-sm"
+              : "text-slate-500 hover:bg-white hover:text-slate-800"
+              }`}
           >
             <QrCode size={16} />
             Scan QR
@@ -114,8 +112,11 @@ export default function JoinEventModal({ onClose, onJoined }) {
                 required
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
-                placeholder="Enter event ID"
-                className={inputClass}
+                placeholder="e.g. K7QX-2PMH"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                className={`${inputClass} uppercase tracking-widest`}
               />
             </div>
 

@@ -24,11 +24,39 @@ import { AppError } from "../utils/AppError.js";
 import { encryptPasscode, decryptPasscode } from "../utils/passcodeCipher.js";
 import { EVENT_STATUS, ALBUM_TYPE } from "../constants/enums.js";
 import { expireOverdueEvents } from "../utils/expireOverdueEvents.js";
+import { generateEventCode } from "../utils/eventCode.js";
 const PASSCODE_SALT_ROUNDS = 10;
 
 const generatePasscode = () => {
   // 6-character human-typeable passcode, e.g. "K7QX2P"
   return crypto.randomBytes(4).toString("hex").toUpperCase().slice(0, 6);
+};
+const createUniqueEventCode = async () => {
+  for (let i = 0; i < 8; i++) {
+    const code = generateEventCode();
+    if (!(await Event.exists({ eventCode: code }))) return code;
+  }
+  throw new AppError("Could not generate an event code, please try again", 500, "EVENT_CODE_FAILED");
+};
+
+// Gives older events a code, atomically so two simultaneous requests can't assign two.
+const ensureEventCode = async (event) => {
+  if (event.eventCode) return event;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const updated = await Event.findOneAndUpdate(
+        { _id: event._id, eventCode: null },
+        { $set: { eventCode: await createUniqueEventCode() } },
+        { new: true }
+      );
+      const winner = updated || (await Event.findById(event._id).select("eventCode"));
+      event.eventCode = winner?.eventCode;
+      return event;
+    } catch (err) {
+      if (err.code !== 11000) throw err; // unique collision: retry with a new code
+    }
+  }
+  return event;
 };
 
 const generateJoinToken = () => crypto.randomBytes(24).toString("base64url");
@@ -66,7 +94,10 @@ export const createEvent = asyncHandler(async (req, res) => {
     const passcodeEncrypted = encryptPasscode(plainPasscode);
     const joinToken = generateJoinToken();
     const photographerJoinToken = generateJoinToken();
-
+        const eventCode = await createUniqueEventCode();
+    const photographerPasscode = generatePasscode();
+    const photographerPasscodeHash = await bcrypt.hash(photographerPasscode, PASSCODE_SALT_ROUNDS);
+    const photographerPasscodeEncrypted = encryptPasscode(photographerPasscode);
     // Upload the optional event cover image.
     let coverImageUrl = null;
 
@@ -83,6 +114,7 @@ export const createEvent = asyncHandler(async (req, res) => {
     // Create the event.
     const event = await Event.create({
       _id: eventId,
+      eventCode,
       title,
       slug: createSlug(title),
       description,
@@ -94,6 +126,8 @@ export const createEvent = asyncHandler(async (req, res) => {
       passcodeEncrypted,
       joinToken,
       photographerJoinToken,
+      photographerPasscodeHash,
+      photographerPasscodeEncrypted,
       coverImageUrl,
       coverImagePublicId,
     });
@@ -112,8 +146,9 @@ export const createEvent = asyncHandler(async (req, res) => {
       message:
         "Event created. Save this passcode now — it will not be shown again.",
       data: {
-        event,
+        event: { ...event.toJSON(), joinToken, photographerJoinToken },
         passcode: plainPasscode,
+        photographerPasscode,
       },
     });
   } catch (error) {
@@ -150,11 +185,8 @@ export const getEvent = asyncHandler(async (req, res) => {
   await expireOverdueEvents();
   const event = await Event.findById(req.params.id);
   if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+  await ensureEventCode(event);
 
-  // Since roles are per-event rather than a fixed account type, the
-  // frontend needs to know how the current viewer relates to THIS
-  // event to decide what UI to show (upload as photographer? as
-  // participant? see organizer-only settings?).
   let viewerAccess = { isOrganizer: false, isPhotographer: false, isParticipant: false };
   if (req.user) {
     const [isPhotographer, isParticipant] = await Promise.all([
@@ -172,12 +204,16 @@ export const getEvent = asyncHandler(async (req, res) => {
 });
 
 export const getEventBySlug = asyncHandler(async (req, res) => {
-  const event = await Event.findOne({ slug: req.params.slug });
+  const { slug } = req.params;
+  let event = await Event.findOne({ slug });
+  if (!event && mongoose.isValidObjectId(slug)) {
+    event = await Event.findById(slug);
+  }
 
   if (!event) {
     throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
   }
-
+await ensureEventCode(event);
   let viewerAccess = {
     isOrganizer: false,
     isPhotographer: false,
@@ -220,7 +256,7 @@ export const listMyEvents = asyncHandler(async (req, res) => {
     EventPhotographer.find({ userId: req.user.id }).populate("eventId"),
     EventParticipant.find({ userId: req.user.id }).populate("eventId"),
   ]);
-
+  await Promise.all(organized.map(ensureEventCode));
   res.status(200).json({
     success: true,
     data: {
@@ -309,35 +345,46 @@ export const joinEvent = asyncHandler(async (req, res) => {
 
   const existing = await EventParticipant.findOne({ eventId, userId: req.user.id });
   if (existing) {
-    return res.status(200).json({ success: true, message: "Already joined this event" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Already joined this event", data: { eventId: event._id } });
   }
 
   await EventParticipant.create({ eventId, userId: req.user.id });
-  res.status(200).json({ success: true, message: "Joined event successfully" });
+  res
+    .status(200)
+    .json({ success: true, message: "Joined event successfully", data: { eventId: event._id } });
 });
 
-/**
- * Photographer self-join. This is the second of the two ways someone
- * becomes an official photographer for an event: the organizer either
- * adds them directly by email (see photographer.controller.js), OR the
- * organizer shares this event's separate photographer QR/link and
- * anyone with it can self-assign as a photographer. Also grants
- * participant access so they can browse the gallery like anyone else.
- */
+
 export const joinEventAsPhotographer = asyncHandler(async (req, res) => {
-  const { photographerToken } = req.body;
+  const { photographerToken, photographerPasscode } = req.body;
   const eventId = req.params.id;
 
-  const event = await Event.findById(eventId).select("photographerJoinToken");
+  const event = await Event.findById(eventId).select("+photographerPasscodeHash photographerJoinToken");
   if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
 
-  if (photographerToken !== event.photographerJoinToken) {
-    throw new AppError("Invalid photographer join link", 400, "INVALID_PHOTOGRAPHER_TOKEN");
+  if (photographerToken) {
+    if (photographerToken !== event.photographerJoinToken) {
+      throw new AppError("Invalid photographer join link", 400, "INVALID_PHOTOGRAPHER_TOKEN");
+    }
+  } else {
+    if (!event.photographerPasscodeHash) {
+      throw new AppError(
+        "This event has no photographer passcode yet. Ask the organizer to generate one, or use the photographer QR code.",
+        400,
+        "NO_PHOTOGRAPHER_PASSCODE"
+      );
+    }
+    const match = await bcrypt.compare(photographerPasscode.toUpperCase(), event.photographerPasscodeHash);
+    if (!match) {
+      throw new AppError("Incorrect photographer passcode", 400, "INVALID_PHOTOGRAPHER_PASSCODE");
+    }
   }
 
   const existing = await EventPhotographer.findOne({ eventId, userId: req.user.id });
   if (existing) {
-    return res.status(200).json({ success: true, message: "Already a photographer for this event" });
+    return res.status(200).json({ success: true, message: "Already a photographer for this event", data: { eventId: event._id } });
   }
 
   await EventPhotographer.create({ eventId, userId: req.user.id, addedBy: req.user.id, canUpload: true });
@@ -347,7 +394,11 @@ export const joinEventAsPhotographer = asyncHandler(async (req, res) => {
     { upsert: true }
   );
 
-  res.status(200).json({ success: true, message: "Joined event as photographer" });
+        res.status(200).json({
+    success: true,
+    message: "Joined event as photographer",
+    data: { eventId: event._id },
+  });
 });
 
 /**
@@ -492,6 +543,41 @@ export const regenerateEventPasscode = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "New passcode generated. The previous passcode no longer works.",
+    data: { passcode: plainPasscode },
+  });
+});
+
+export const getPhotographerPasscode = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id).select("+photographerPasscodeEncrypted");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  if (!event.photographerPasscodeEncrypted) {
+    return res.status(200).json({ success: true, data: { passcode: null, needsRegeneration: true } });
+  }
+  let passcode;
+  try {
+    passcode = decryptPasscode(event.photographerPasscodeEncrypted);
+  } catch {
+    return res.status(200).json({ success: true, data: { passcode: null, needsRegeneration: true } });
+  }
+  res.status(200).json({ success: true, data: { passcode, needsRegeneration: false } });
+});
+
+export const regeneratePhotographerPasscode = asyncHandler(async (req, res) => {
+  const plainPasscode = generatePasscode();
+  const photographerPasscodeHash = await bcrypt.hash(plainPasscode, PASSCODE_SALT_ROUNDS);
+  const photographerPasscodeEncrypted = encryptPasscode(plainPasscode);
+
+  const event = await Event.findByIdAndUpdate(
+    req.params.id,
+    { photographerPasscodeHash, photographerPasscodeEncrypted },
+    { new: true }
+  );
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  res.status(200).json({
+    success: true,
+    message: "New photographer passcode generated. The previous one no longer works.",
     data: { passcode: plainPasscode },
   });
 });

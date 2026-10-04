@@ -73,3 +73,12 @@ export const setPhotographerPermission = (id, userId, canUpload) =>
   api.put(`/events/${id}/photographers/${userId}/permission`, {
     canUpload,
   });
+
+export const joinEventAsPhotographerWithPasscode = (id, photographerPasscode) =>
+  api.post(`/events/${id}/join-as-photographer`, { photographerPasscode });
+
+export const getPhotographerPasscode = (id) =>
+  api.get(`/events/${id}/photographer-passcode`);
+
+export const regeneratePhotographerPasscode = (id) =>
+  api.post(`/events/${id}/photographer-passcode/regenerate`);

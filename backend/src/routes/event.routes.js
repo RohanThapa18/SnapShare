@@ -9,7 +9,7 @@ import {
   requireEventOwner,
   requireEventParticipant,
 } from "../middleware/membership.js";
-
+import { resolveEventRef } from "../middleware/resolveEventRef.js";
 import { uploadCoverImage } from "../middleware/upload.js";
 
 import { validate } from "../middleware/validate.js";
@@ -20,13 +20,29 @@ import {
   joinEventSchema,
   joinAsPhotographerSchema,
 } from "../validators/event.validators.js";
-
+import rateLimit from "express-rate-limit";
 
 
 const router = Router();
 
-router.use(requireAuth);
+const joinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many join attempts, please try again later", code: "RATE_LIMITED" },
+});
 
+
+router.use(requireAuth);
+router.get("/:id/photographer-passcode", requireEventOwner, eventController.getPhotographerPasscode);
+
+router.post(
+  "/:id/photographer-passcode/regenerate",
+  requireEventOwner,
+  eventController.regeneratePhotographerPasscode
+);
+router.post("/:id/join", joinLimiter, requireActiveEvent, validate(joinEventSchema), eventController.joinEvent);
 // Any authenticated user can create an event.
 router.post(
   "/",
@@ -77,6 +93,8 @@ router.delete(
 router.post(
   "/:id/join",
   requireActiveEvent,
+  joinLimiter,
+  resolveEventRef,
   validate(joinEventSchema),
   eventController.joinEvent
 );
@@ -84,6 +102,7 @@ router.post(
 router.post(
   "/:id/join-as-photographer",
   requireActiveEvent,
+  resolveEventRef,
   validate(joinAsPhotographerSchema),
   eventController.joinEventAsPhotographer
 );

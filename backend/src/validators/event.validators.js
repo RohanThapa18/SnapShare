@@ -32,7 +32,12 @@ export const joinEventSchema = z.object({
 });
 
 export const joinAsPhotographerSchema = z.object({
-  body: z.object({
-    photographerToken: z.string().trim().min(10),
-  }),
+  body: z
+    .object({
+      photographerPasscode: z.string().trim().min(4).max(20).optional(),
+      photographerToken: z.string().trim().min(10).optional(),
+    })
+    .refine((data) => data.photographerPasscode || data.photographerToken, {
+      message: "Either photographerPasscode or photographerToken is required",
+    }),
 });

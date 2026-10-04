@@ -13,7 +13,7 @@ const eventSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-
+    eventCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
     description: { type: String, trim: true, maxlength: 2000, default: "" },
     coverImageUrl: { type: String, default: null },
     coverImagePublicId: { type: String, default: null },
@@ -39,7 +39,8 @@ const eventSchema = new mongoose.Schema(
     // field existed will have it as null — the reveal endpoint tells
     // the organizer to regenerate in that case.
     passcodeEncrypted: { type: String, select: false, default: null },
-
+    photographerPasscodeHash: { type: String, select: false, default: null },
+    photographerPasscodeEncrypted: { type: String, select: false, default: null },
     // Cryptographically random opaque token used for QR-code joining as
     // a PARTICIPANT. Never exposes the passcode or the raw Mongo _id.
     joinToken: {
@@ -72,5 +73,17 @@ const eventSchema = new mongoose.Schema(
 );
 
 eventSchema.index({ organizerId: 1, status: 1 });
+
+eventSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.passcodeHash;
+    delete ret.passcodeEncrypted;
+    delete ret.photographerPasscodeHash;
+    delete ret.photographerPasscodeEncrypted;
+    delete ret.joinToken;
+    delete ret.photographerJoinToken;
+    return ret;
+  },
+});
 
 export default mongoose.model("Event", eventSchema);
