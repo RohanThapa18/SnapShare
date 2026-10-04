@@ -25,7 +25,7 @@ const processPhotoJob = async (job) => {
   await photo.save();
 
   try {
-    const imageUrl = getInternalFetchUrl(photo.cloudinaryPublicId);
+    const imageUrl = getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType });
     const imageRes = await fetch(imageUrl);
     if (!imageRes.ok) throw new Error(`Failed to fetch photo from Cloudinary: ${imageRes.status}`);
     const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
@@ -33,6 +33,7 @@ const processPhotoJob = async (job) => {
     const { faces } = await detectFacesAndEmbed(imageBuffer);
 
     if (faces?.length) {
+      await FaceEmbedding.deleteMany({ photoId: photo._id });
       await FaceEmbedding.insertMany(
         faces.map((face) => ({
           eventId: photo.eventId,

@@ -26,6 +26,9 @@ const aiFetch = async (path, options = {}) => {
   return res.json();
 };
 
+const raw = process.env.AI_SERVICE_URL;
+const baseUrl = /^https?:\/\//.test(raw) ? raw : `http://${raw}`;
+
 export const detectFacesAndEmbed = async (imageBuffer) => {
   const form = new FormData();
   form.append("image", new Blob([imageBuffer]), "photo.jpg");

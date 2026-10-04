@@ -1,7 +1,7 @@
 import archiver from "archiver";
 import asyncHandler from "express-async-handler";
 import { Event, MyPhotosCollection, Photo, Purchase, Download, Like, Favourite } from "../models/index.js";
-import { getOptimizedUrl, getWatermarkedUrl, getInternalFetchUrl } from "../services/cloudinaryService.js";
+import { presentPhoto } from "../services/photoPresenter.js";
 import { AppError } from "../utils/AppError.js";
 
 /**
@@ -33,9 +33,7 @@ export const getMyPhotosCollection = asyncHandler(async (req, res) => {
     .map((photo) => {
       const isPurchased = purchasedIds.has(photo._id.toString());
       return {
-        ...photo,
-        url: photo.isPaid && !isPurchased ? getWatermarkedUrl(photo.cloudinaryPublicId) : getOptimizedUrl(photo.cloudinaryPublicId),
-        purchased: photo.isPaid ? isPurchased : true,
+        ...presentPhoto(photo, { purchased: isPurchased }),
         confidence: collection.confidenceByPhotoId.get(photo._id.toString()) ?? undefined,
         likedByMe: likedIds.has(photo._id.toString()),
         favouritedByMe: favouritedIds.has(photo._id.toString()),
@@ -45,22 +43,10 @@ export const getMyPhotosCollection = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: { photos: results, hasSearched: true } });
 });
 
-/**
- * Streams a ZIP of every photo in the user's My Photos collection for
- * this event, in original/high-resolution quality. Never loads the
- * whole archive into memory — `archiver` pipes each fetched image
- * straight into the response stream as it downloads it from
- * Cloudinary, so this scales to large matched sets without ballooning
- * server memory.
- *
- * Authorization mirrors the single-photo download endpoint exactly:
- * free photos are always included, paid photos only if a Purchase
- * record exists — enforced here server-side, not left to the frontend
- * to only show a button for authorized photos.
- */
+
 export const downloadMyPhotosZip = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
-
+  const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType }));
   const [event, collection] = await Promise.all([
     Event.findById(eventId).select("title"),
     MyPhotosCollection.findOne({ eventId, userId: req.user.id }),

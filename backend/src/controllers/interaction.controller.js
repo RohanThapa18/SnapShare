@@ -2,7 +2,7 @@ import asyncHandler from "express-async-handler";
 import { Like, Favourite, Photo, Purchase, EventParticipant } from "../models/index.js";
 import { AppError } from "../utils/AppError.js";
 import { getWatermarkedUrl } from "../services/cloudinaryService.js";
-
+import { presentPhoto } from "../services/photoPresenter.js";
 
 
 const requirePhotoMembership = async (photoId, userId) => {
@@ -74,11 +74,8 @@ const enrichPhotosForViewer = async (photos, userId) => {
 
   return photos.map((photo) => {
     const id = photo._id.toString();
-    const isPurchased = purchasedIds.has(id);
     return {
-      ...photo,
-      url: photo.isPaid && !isPurchased ? getWatermarkedUrl(photo.cloudinaryPublicId) : photo.url,
-      purchased: photo.isPaid ? isPurchased : true,
+      ...presentPhoto(photo, { purchased: purchasedIds.has(id) }),
       likedByMe: likedIds.has(id),
       favouritedByMe: favouritedIds.has(id),
     };

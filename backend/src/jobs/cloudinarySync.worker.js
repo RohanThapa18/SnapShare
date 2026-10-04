@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import { getRedisConnection } from "../config/redis.js";
 import { CLOUDINARY_SYNC_QUEUE } from "../queues/cloudinarySync.queue.js";
 import { Photo, Like, Favourite, Download, FaceEmbedding } from "../models/index.js";
-import { checkExistingPublicIds } from "../services/cloudinaryService.js";
+import { checkExistingPhotos } from "../services/cloudinaryService.js";
 
 const BATCH_SIZE = 200;
 
@@ -24,9 +24,9 @@ const syncAllPhotos = async () => {
     const batch = await Photo.find(query).sort({ _id: 1 }).limit(BATCH_SIZE).select("cloudinaryPublicId");
     if (!batch.length) break;
 
-    const publicIds = batch.map((p) => p.cloudinaryPublicId);
-    const stillExisting = await checkExistingPublicIds(publicIds);
-    const orphaned = batch.filter((p) => !stillExisting.has(p.cloudinaryPublicId));
+    const publicIds = batch.map((p) => p.select("cloudinaryPublicId deliveryType"));
+    const stillExisting = await checkExistingPhotos(publicIds);
+    const orphaned = batch.filter((p) => !stillExisting.has(p.select("cloudinaryPublicId deliveryType")));
 
     if (orphaned.length) {
       const orphanedIds = orphaned.map((p) => p._id);
