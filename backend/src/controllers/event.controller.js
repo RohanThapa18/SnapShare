@@ -409,7 +409,7 @@ export const joinEvent = asyncHandler(async (req, res) => {
     if (!match) throw new AppError("Incorrect passcode", 400, "INVALID_PASSCODE");
   }
 
-  const existing = await EventParticipant.findOne({ eventId, userId: req.user.id });
+   const existing = await EventParticipant.findOne({ eventId, userId: req.user.id });
   if (existing) {
     return res
       .status(200)

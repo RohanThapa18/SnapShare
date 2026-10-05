@@ -9,7 +9,7 @@ import {
   requireEventOwner,
   requireEventParticipant,
 } from "../middleware/membership.js";
-import { resolveEventRef } from "../middleware/resolveEventRef.js";
+import { resolveEventRef, resolveEventParam } from "../middleware/resolveEventRef.js";
 import { uploadCoverImage } from "../middleware/upload.js";
 
 import { validate } from "../middleware/validate.js";
@@ -24,6 +24,7 @@ import rateLimit from "express-rate-limit";
 
 
 const router = Router();
+router.param("id", resolveEventParam);
 
 const joinLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -96,17 +97,18 @@ router.delete(
 
 router.post(
   "/:id/join",
-  requireActiveEvent,
   joinLimiter,
   resolveEventRef,
+  requireActiveEvent,
   validate(joinEventSchema),
   eventController.joinEvent
 );
 
 router.post(
   "/:id/join-as-photographer",
-  requireActiveEvent,
+  joinLimiter,
   resolveEventRef,
+  requireActiveEvent,
   validate(joinAsPhotographerSchema),
   eventController.joinEventAsPhotographer
 );
