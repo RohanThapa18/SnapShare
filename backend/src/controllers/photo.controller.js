@@ -211,10 +211,15 @@ export const downloadPhoto = asyncHandler(async (req, res) => {
     }
   }
 
-  const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId));
-  if (!response.ok) {
-    throw new AppError("Could not fetch photo from storage", 502, "CLOUDINARY_FETCH_FAILED");
-  }
+  const response = await fetch(
+  getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType })
+);
+if (!response.ok) {
+  console.error(
+    `[download] Cloudinary returned ${response.status} for ${photo.cloudinaryPublicId} (${photo.deliveryType})`
+  );
+  throw new AppError("Could not fetch photo from storage", 502, "CLOUDINARY_FETCH_FAILED");
+}
 
   photo.downloadCount += 1;
   await photo.save();
