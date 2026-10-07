@@ -1,4 +1,5 @@
 import logging
+import time
 import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
@@ -20,11 +21,32 @@ MIN_FACE_AREA_RATIO = 0.015
 def get_face_app() -> FaceAnalysis:
     global _face_app
     if _face_app is None:
+        started = time.perf_counter()
         logger.info(f"Loading InsightFace model '{settings.insightface_model_name}'...")
-        _face_app = FaceAnalysis(name=settings.insightface_model_name)
+        providers = (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            if settings.ctx_id >= 0
+            else ["CPUExecutionProvider"]
+        )
+        # Only the face box, the 5 alignment keypoints and the ArcFace embedding
+        # are used, so skip the landmark and gender/age models.
+        _face_app = FaceAnalysis(
+            name=settings.insightface_model_name,
+            allowed_modules=["detection", "recognition"],
+            providers=providers,
+        )
         _face_app.prepare(ctx_id=settings.ctx_id, det_size=(settings.detection_size, settings.detection_size))
-        logger.info("InsightFace model loaded.")
+        logger.info(f"InsightFace model loaded in {time.perf_counter() - started:.1f}s.")
     return _face_app
+
+
+def warm_up() -> None:
+    """Load the model at startup so the first real request doesn't pay for it."""
+    face_app = get_face_app()
+    size = settings.detection_size
+    started = time.perf_counter()
+    face_app.get(np.zeros((size, size, 3), dtype=np.uint8))
+    logger.info(f"Warm-up inference done in {time.perf_counter() - started:.2f}s.")
 
 
 def decode_image(image_bytes: bytes) -> np.ndarray:
@@ -85,7 +107,7 @@ def embed_single_face(image_bytes: bytes) -> dict | None:
     """
     img = decode_image(image_bytes)
     face_app = get_face_app()
-    faces = face_app.get(img)
+    faces = face_app.get(img, max_num=1)
 
     if not faces:
         return None
