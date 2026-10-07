@@ -8,6 +8,7 @@ import PhotoCard from "./PhotoCard";
 import PhotoLightbox from "./PhotoLightbox";
 import EmptyState from "./EmptyState";
 import { PhotoGridSkeleton } from "./Skeleton";
+import { resizeImageFile } from "../utils/resizeImage";
 
 /**
  * The "Find My Photos" experience end to end:
@@ -36,7 +37,7 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
         if (cancelled) return;
         if (res.data.data.photos.length > 0) setResults(res.data.data.photos);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => !cancelled && setLoadingCollection(false));
     return () => {
       cancelled = true;
@@ -64,7 +65,8 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
     setSearching(true);
     try {
       const formData = new FormData();
-      selfies.forEach((file) => formData.append("selfies", file));
+      const prepared = await Promise.all(selfies.map((file) => resizeImageFile(file)));
+      prepared.forEach((file) => formData.append("selfies", file));
       const res = await photoService.findMyPhotos(eventId, formData);
       setResults(res.data.data.photos);
       if (res.data.data.photos.length === 0) {

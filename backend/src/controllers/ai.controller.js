@@ -29,10 +29,15 @@ export const findMyPhotos = asyncHandler(async (req, res) => {
   // Selfie buffers are used only in-memory for this request and combined
   // into one query embedding — never persisted anywhere, individually or
   // combined.
-  const queryEmbedding = await embedSelfies(req.files.map((f) => f.buffer));
-
-  const embeddings = await FaceEmbedding.find({ eventId: new mongoose.Types.ObjectId(eventId) }).select(
-    "+embedding photoId"
+  const startedAt = Date.now();
+  const [queryEmbedding, embeddings] = await Promise.all([
+    embedSelfies(req.files.map((f) => f.buffer)),
+    FaceEmbedding.find({ eventId: new mongoose.Types.ObjectId(eventId) })
+      .select("+embedding photoId")
+      .lean(),
+  ]);
+  console.log(
+    `[find-my-photos] event ${eventId}: ${req.files.length} selfie(s), ${embeddings.length} stored face(s), AI + DB took ${Date.now() - startedAt} ms`
   );
 
   const matchedPhotoIds = new Map(); // photoId -> best similarity score for that photo
