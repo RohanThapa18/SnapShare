@@ -50,7 +50,7 @@ export default function Navbar() {
                 w-8 h-8 object-contain
                 transition-transform duration-500
                 group-hover:scale-110
-                group-hover:rotate-[-2deg]
+                group-hover:rotate-2deg
               "
             />
 

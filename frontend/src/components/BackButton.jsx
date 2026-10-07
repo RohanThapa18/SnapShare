@@ -8,11 +8,7 @@ export default function BackButton({
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (window.history.state && window.history.state.idx > 0) {
-      navigate(-1);
-    } else {
-      navigate(fallback);
-    }
+    navigate("/dashboard");
   };
 
   return (
@@ -28,8 +24,8 @@ export default function BackButton({
         mb-5
         rounded-xl
         border
-        border-[#E4E0D8]
-        bg-[#FFFCF5]
+        border-[#E8E9F6]
+        bg-[#E8E9F6]
         px-3
         py-2
         text-sm
@@ -40,8 +36,8 @@ export default function BackButton({
         ease-out
 
         hover:-translate-x-0.5
-        hover:border-[#D6D1C7]
-        hover:bg-[#FFFCF5]
+        hover:border-[#E8E9F6]
+        hover:bg-[#E8E9F6]
         hover:text-primary
         hover:shadow-[0_3px_10px_rgba(55,67,117,0.08)]
 
