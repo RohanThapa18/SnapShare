@@ -1,5 +1,16 @@
-import { useEffect, useState } from "react";
-import { Sparkles, UserRound, ImageOff, PackageCheck, Download, Loader2, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Sparkles,
+  UserRound,
+  ImageOff,
+  PackageCheck,
+  Loader2,
+  RefreshCw,
+  Camera,
+  Upload,
+  X,
+  RotateCcw,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import * as photoService from "../services/photoService";
 import * as collectionService from "../services/collectionService";
@@ -29,6 +40,21 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
   const [downloadingId, setDownloadingId] = useState(null);
   const [zipState, setZipState] = useState("idle"); // idle | preparing | ready-error
 
+  // Camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const previewsRef = useRef([]);
+
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
+
   useEffect(() => {
     let cancelled = false;
     collectionService
@@ -52,13 +78,167 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
 
   const handleRemoveSelfie = (index) => {
     setSelfies((prev) => prev.filter((_, i) => i !== index));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => {
+      const url = prev[index];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const resetSelfies = () => {
+    previews.forEach((url) => URL.revokeObjectURL(url));
     setSelfies([]);
     setPreviews([]);
   };
+
+  const openCamera = async () => {
+    if (selfies.length >= 3) return;
+
+    setCameraError("");
+    setCameraLoading(true);
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access is not supported by this browser.");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      setCameraOpen(true);
+    } catch (error) {
+      console.error("Camera error:", error);
+
+      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+        setCameraError(
+          "Camera permission was denied. Allow camera access in your browser and try again."
+        );
+      } else if (error?.name === "NotFoundError") {
+        setCameraError("No camera was found on this device.");
+      } else if (error?.name === "NotReadableError") {
+        setCameraError("Your camera is already being used by another application.");
+      } else {
+        setCameraError("Unable to access your camera. Please try again.");
+        toast.error("Unable to access your camera. Please check your camera permission.");
+      }
+    } finally {
+      setCameraLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!cameraOpen || !streamRef.current || !videoRef.current) return;
+
+    const video = videoRef.current;
+    video.srcObject = streamRef.current;
+
+    const playVideo = async () => {
+      try {
+        await video.play();
+      } catch (error) {
+        console.error("Unable to start camera preview:", error);
+        setCameraError("Unable to start the camera preview. Please try again.");
+      }
+    };
+
+    playVideo();
+  }, [cameraOpen]);
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setCameraOpen(false);
+    setCameraError("");
+    setCapturing(false);
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas || video.videoWidth === 0 || video.videoHeight === 0) {
+      setCameraError("Camera is not ready yet. Please wait a moment and try again.");
+      return;
+    }
+
+    setCapturing(true);
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      setCameraError("Unable to capture the camera image.");
+      setCapturing(false);
+      return;
+    }
+
+    // Do not mirror the saved image. The AI receives the normal camera frame.
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError("Unable to create the selfie image. Please try again.");
+          setCapturing(false);
+          return;
+        }
+
+        const file = new File(
+          [blob],
+          `camera-selfie-${Date.now()}.jpg`,
+          { type: "image/jpeg" }
+        );
+
+        const previewUrl = URL.createObjectURL(file);
+
+        setSelfies((prev) => {
+          if (prev.length >= 3) {
+            URL.revokeObjectURL(previewUrl);
+            return prev;
+          }
+          return [...prev, file];
+        });
+
+        setPreviews((prev) => {
+          if (prev.length >= 3) {
+            URL.revokeObjectURL(previewUrl);
+            return prev;
+          }
+          return [...prev, previewUrl];
+        });
+
+        closeCamera();
+        setCapturing(false);
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      previewsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const handleSearch = async () => {
     if (selfies.length === 0) return;
@@ -148,7 +328,11 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="hidden"
-                    onChange={(e) => e.target.files[0] && handleSelect(e.target.files[0])}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSelect(file);
+                      e.target.value = "";
+                    }}
                   />
                 </label>
               )}
@@ -157,10 +341,39 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
               Add up to 3 selfies from slightly different angles for a more accurate match ({selfies.length}/3).
             </p>
 
+            {selfies.length < 3 && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  disabled={cameraLoading}
+                  className="flex items-center justify-center gap-2 border border-primary text-primary hover:bg-primary/5 px-5 py-2.5 rounded-control transition disabled:opacity-50"
+                >
+                  <Camera size={17} />
+                  {cameraLoading ? "Opening Camera..." : "Use Camera"}
+                </button>
+
+                <label className="flex items-center justify-center gap-2 border border-border bg-white text-text px-5 py-2.5 rounded-control hover:bg-surface-hover cursor-pointer transition">
+                  <Upload size={17} />
+                  Upload from Device
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSelect(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+
             <button
               onClick={handleSearch}
               disabled={selfies.length === 0 || searching}
-              className="bg-primary text-white px-5 py-2 rounded-control hover:bg-primary-hover transition disabled:opacity-50 w-fit"
+              className="bg-primary text-white px-5 py-2.5 rounded-control hover:bg-primary-hover transition disabled:opacity-50 w-fit"
             >
               Find My Photos
             </button>
@@ -297,6 +510,68 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
           downloadingId={downloadingId}
         />
       )}
+
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-display text-lg font-medium text-primary">Take a Selfie</h3>
+                <p className="text-xs text-text-muted mt-1">Position your face inside the guide</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCamera}
+                className="w-9 h-9 rounded-lg hover:bg-surface-hover flex items-center justify-center text-text-muted"
+                aria-label="Close camera"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-black aspect-video relative overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-44 h-56 sm:w-56 sm:h-72 border-2 border-white/80 rounded-[50%] shadow-lg" />
+              </div>
+            </div>
+
+            {cameraError && (
+              <div className="px-5 pt-4 text-sm text-error">
+                {cameraError}
+              </div>
+            )}
+
+            <div className="p-5 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={closeCamera}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-control border border-border text-text-muted hover:bg-surface-hover transition"
+              >
+                <RotateCcw size={16} />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={capturePhoto}
+                disabled={capturing}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-control bg-primary hover:bg-primary-hover text-white font-medium transition disabled:opacity-50"
+              >
+                <Camera size={17} />
+                {capturing ? "Capturing..." : "Capture Selfie"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
