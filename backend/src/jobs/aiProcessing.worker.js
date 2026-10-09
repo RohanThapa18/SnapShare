@@ -32,8 +32,11 @@ const processPhotoJob = async (job) => {
 
     const { faces } = await detectFacesAndEmbed(imageBuffer);
 
+    // Always clear old embeddings first, even when no faces are found,
+    // so a reprocessed photo can't keep stale matches.
+    await FaceEmbedding.deleteMany({ photoId: photo._id });
+
     if (faces?.length) {
-      await FaceEmbedding.deleteMany({ photoId: photo._id });
       await FaceEmbedding.insertMany(
         faces.map((face) => ({
           eventId: photo.eventId,

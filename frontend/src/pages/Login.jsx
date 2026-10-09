@@ -319,6 +319,7 @@ export default function Login() {
 
           <Link
             to="/register"
+            state={location.state}
             className="
               inline-flex
               items-center

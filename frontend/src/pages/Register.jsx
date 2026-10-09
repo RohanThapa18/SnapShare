@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   User,
@@ -15,6 +15,8 @@ import { useAuth } from "../context/AuthContext";
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || "/dashboard";
 
   const [form, setForm] = useState({
     name: "",
@@ -30,13 +32,13 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(form);
+      navigate(redirectTo, { replace: true });
       toast.success("Account created!");
       navigate("/dashboard");
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          "Registration failed"
+        "Registration failed"
       );
     } finally {
       setLoading(false);
@@ -403,6 +405,7 @@ export default function Register() {
         {/* Login */}
         <Link
           to="/login"
+          state={location.state}
           className="
             group
             w-full

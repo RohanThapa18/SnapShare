@@ -55,10 +55,23 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
     try {
       const uploadFn =
         targetAlbum === "OFFICIAL" ? photoService.uploadOfficialPhotos : photoService.uploadCommunityPhotos;
-      await uploadFn(eventId, formData, (evt) => setProgress(Math.round((evt.loaded / evt.total) * 100)));
-      toast.success(`${files.length} photo(s) uploaded — AI processing in background`);
-      setFiles([]);
-      onUploaded?.();
+      const res = await uploadFn(eventId, formData, (evt) =>
+        setProgress(Math.round((evt.loaded / evt.total) * 100))
+      );
+      const { photos = [], failed = [] } = res.data.data;
+
+      if (failed.length) {
+        toast.error(
+          `${photos.length} uploaded, ${failed.length} failed: ${failed.map((f) => f.filename).join(", ")}`
+        );
+        // Keep only the failed files in the list so the user can retry them.
+        const failedNames = new Set(failed.map((f) => f.filename));
+        setFiles((prev) => prev.filter((f) => failedNames.has(f.name)));
+      } else {
+        toast.success(`${photos.length} photo(s) uploaded — AI processing in background`);
+        setFiles([]);
+      }
+      if (photos.length) onUploaded?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Upload failed");
     } finally {
@@ -74,9 +87,8 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
             <button
               key={a}
               onClick={() => setTargetAlbum(a)}
-              className={`px-3 py-1 rounded-full text-xs transition ${
-                targetAlbum === a ? "bg-primary text-white" : "bg-surface border border-border text-text-muted hover:text-primary"
-              }`}
+              className={`px-3 py-1 rounded-full text-xs transition ${targetAlbum === a ? "bg-primary text-white" : "bg-surface border border-border text-text-muted hover:text-primary"
+                }`}
             >
               {a}
             </button>
@@ -95,9 +107,8 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`border-2 border-dashed rounded-card p-10 text-center transition-colors duration-150 ${
-          dragOver ? "border-primary bg-secondary/15" : "border-border hover:border-secondary"
-        }`}
+        className={`border-2 border-dashed rounded-card p-10 text-center transition-colors duration-150 ${dragOver ? "border-primary bg-secondary/15" : "border-border hover:border-secondary"
+          }`}
       >
         <UploadCloud className={`mx-auto mb-3 transition-transform ${dragOver ? "scale-110 text-primary" : "text-text-muted"}`} size={32} />
         <p className="text-text-muted mb-2">Drag &amp; drop photos here, or</p>

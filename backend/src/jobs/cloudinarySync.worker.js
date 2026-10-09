@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import { getRedisConnection } from "../config/redis.js";
 import { CLOUDINARY_SYNC_QUEUE } from "../queues/cloudinarySync.queue.js";
 import { Photo, Like, Favourite, Download, FaceEmbedding } from "../models/index.js";
-import { checkExistingPhotos } from "../services/cloudinaryService.js";
+import { checkExistingPhotos, looksLikeBadLookup } from "../services/cloudinaryService.js";
 
 const BATCH_SIZE = 200;
 
@@ -24,11 +24,14 @@ const syncAllPhotos = async () => {
     const batch = await Photo.find(query).sort({ _id: 1 }).limit(BATCH_SIZE).select("cloudinaryPublicId");
     if (!batch.length) break;
 
-    const publicIds = batch.map((p) => p.select("cloudinaryPublicId deliveryType"));
-    const stillExisting = await checkExistingPhotos(publicIds);
-    const orphaned = batch.filter((p) => !stillExisting.has(p.select("cloudinaryPublicId deliveryType")));
+       const stillExisting = await checkExistingPhotos(batch);
+    const orphaned = batch.filter((p) => !stillExisting.has(p.cloudinaryPublicId));
 
-    if (orphaned.length) {
+    if (looksLikeBadLookup(batch.length, orphaned.length)) {
+      console.warn(
+        `[cloudinary-sync] ${orphaned.length} of ${batch.length} photos look missing — treating it as a lookup problem and NOT deleting this batch.`
+      );
+    } else if (orphaned.length) {
       const orphanedIds = orphaned.map((p) => p._id);
       await Promise.all([
         Photo.deleteMany({ _id: { $in: orphanedIds } }),

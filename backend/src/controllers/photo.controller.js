@@ -8,7 +8,9 @@ import {
   getThumbnailUrl,
   getWatermarkedUrl,
   getInternalFetchUrl,
-  checkExistingPublicIds,
+  checkExistingPhotos,
+  looksLikeBadLookup,
+  eventPhotoFilesExist,
 } from "../services/cloudinaryService.js";
 import { presentPhoto } from "../services/photoPresenter.js";
 import { enqueuePhotoForAiProcessing } from "../queues/aiProcessing.queue.js";
@@ -24,23 +26,77 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     type,
   });
 
-  const photo = await Photo.create({
-    eventId,
-    uploaderId,
-    album,
-    cloudinaryPublicId: cloudinaryResult.public_id,
-    deliveryType: type,
-    url: getOptimizedUrl(cloudinaryResult.public_id, { type }),
-    thumbnailUrl: getThumbnailUrl(cloudinaryResult.public_id, { type }),
-    width: processed.width,
-    height: processed.height,
-    fileSizeBytes: processed.sizeBytes,
-    isPaid: Boolean(isPaid),
-    price: isPaid ? Number(price) || 0 : 0,
-  });
+  let photo;
+  try {
+    photo = await Photo.create({
+      eventId,
+      uploaderId,
+      album,
+      cloudinaryPublicId: cloudinaryResult.public_id,
+      deliveryType: type,
+      url: getOptimizedUrl(cloudinaryResult.public_id, { type }),
+      thumbnailUrl: getThumbnailUrl(cloudinaryResult.public_id, { type }),
+      width: processed.width,
+      height: processed.height,
+      fileSizeBytes: processed.sizeBytes,
+      isPaid: Boolean(isPaid),
+      price: isPaid ? Number(price) || 0 : 0,
+    });
+  } catch (err) {
+    // Don't leave an orphaned asset in Cloudinary if the DB write fails.
+    await deleteCloudinaryAsset(cloudinaryResult.public_id, type).catch(() => {});
+    throw err;
+  }
 
   await enqueuePhotoForAiProcessing(photo._id.toString());
   return photo;
+};
+
+/**
+ * Uploads files one by one, retrying each once. A failure never aborts
+ * the batch; it is reported back per file instead.
+ */
+const uploadBatch = async (files, opts) => {
+  const photos = [];
+  const failed = [];
+
+  for (const file of files) {
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        photos.push(await uploadOne(file, opts));
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (lastErr) {
+      console.error(`[upload] failed for ${file.originalname}:`, lastErr.message);
+      failed.push({ filename: file.originalname, reason: lastErr.message });
+    }
+  }
+
+  return { photos, failed };
+};
+
+// 201 = everything saved, 207 = some saved / some failed, 502 = nothing saved.
+const sendBatchResult = (res, { photos, failed }) => {
+  if (!photos.length) {
+    return res.status(502).json({
+      success: false,
+      message: `All ${failed.length} upload(s) failed`,
+      code: "UPLOAD_FAILED",
+      data: { photos: [], failed },
+    });
+  }
+  const total = photos.length + failed.length;
+  const message = failed.length
+    ? `${photos.length} of ${total} photo(s) uploaded, ${failed.length} failed`
+    : `${photos.length} photo(s) uploaded`;
+  return res
+    .status(failed.length ? 207 : 201)
+    .json({ success: true, message, data: { photos, failed } });
 };
 
 /**
@@ -55,20 +111,14 @@ export const uploadOfficialPhotos = asyncHandler(async (req, res) => {
     throw new AppError("Paid photos need a price greater than 0", 400, "INVALID_PRICE");
   }
 
-  const photos = [];
-  for (const file of req.files) {
-    photos.push(
-      await uploadOne(file, {
-        eventId: req.params.id,
-        uploaderId: req.user.id,
-        album: ALBUM_TYPE.OFFICIAL,
-        isPaid,
-        price,
-      })
-    );
-  }
-
-  res.status(201).json({ success: true, message: `${photos.length} photo(s) uploaded`, data: { photos } });
+  const result = await uploadBatch(req.files, {
+    eventId: req.params.id,
+    uploaderId: req.user.id,
+    album: ALBUM_TYPE.OFFICIAL,
+    isPaid,
+    price,
+  });
+  sendBatchResult(res, result);
 });
 
 /**
@@ -77,19 +127,13 @@ export const uploadOfficialPhotos = asyncHandler(async (req, res) => {
 export const uploadCommunityPhotos = asyncHandler(async (req, res) => {
   if (!req.files?.length) throw new AppError("No files uploaded", 400, "NO_FILES");
 
-  const photos = [];
-  for (const file of req.files) {
-    photos.push(
-      await uploadOne(file, {
-        eventId: req.params.id,
-        uploaderId: req.user.id,
-        album: ALBUM_TYPE.COMMUNITY,
-        isPaid: false,
-      })
-    );
-  }
-
-  res.status(201).json({ success: true, message: `${photos.length} photo(s) uploaded`, data: { photos } });
+  const result = await uploadBatch(req.files, {
+    eventId: req.params.id,
+    uploaderId: req.user.id,
+    album: ALBUM_TYPE.COMMUNITY,
+    isPaid: false,
+  });
+  sendBatchResult(res, result);
 });
 
 /**
@@ -252,10 +296,26 @@ export const syncEventPhotosWithCloudinary = asyncHandler(async (req, res) => {
     return res.status(200).json({ success: true, data: { checked: 0, removed: 0 } });
   }
 
-  const publicIds = photos.map((p) => p.cloudinaryPublicId);
-  const stillExisting = await checkExistingPublicIds(publicIds);
+   const stillExisting = await checkExistingPhotos(photos);
 
   const orphaned = photos.filter((p) => !stillExisting.has(p.cloudinaryPublicId));
+
+  // If everything (or most of a big event) looks "missing", the lookup is
+  // almost certainly wrong, not the photos. Refuse to delete anything.
+    // If everything (or most of a big event) looks "missing", double-check
+  // against the event's folders on Cloudinary before deleting. Empty folders
+  // mean the photos really are gone; files present mean the lookup is wrong.
+  if (
+    looksLikeBadLookup(photos.length, orphaned.length) &&
+    req.query.force !== "true" &&
+    (await eventPhotoFilesExist(eventId))
+  ) {
+    throw new AppError(
+      `Sync stopped: ${orphaned.length} of ${photos.length} photos look missing, but files for this event still exist on Cloudinary, so this looks like a lookup problem. Nothing was removed.`,
+      409,
+      "SYNC_UNSAFE"
+    );
+  }
 
   if (orphaned.length) {
     const orphanedIds = orphaned.map((p) => p._id);
