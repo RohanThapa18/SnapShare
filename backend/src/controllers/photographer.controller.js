@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import { EventPhotographer, User } from "../models/index.js";
+import { EventParticipant, EventPhotographer, User } from "../models/index.js";
 import { AppError } from "../utils/AppError.js";
 
 
@@ -25,7 +25,18 @@ export const addPhotographer = asyncHandler(async (req, res) => {
     eventId,
     userId: photographer._id,
     addedBy: req.user.id,
+    canUpload: true,
   });
+
+  // Same as the self-join path: a photographer is also a participant,
+  // otherwise participant-gated event/gallery routes return 403.
+  await EventParticipant.findOneAndUpdate(
+    { eventId, userId: photographer._id },
+    { eventId, userId: photographer._id },
+    { upsert: true }
+  );
+
+  res.status(201).json({ success: true, message: "Photographer added", data: { assignment } });
 
   res.status(201).json({ success: true, message: "Photographer added", data: { assignment } });
 });

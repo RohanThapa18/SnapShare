@@ -17,16 +17,24 @@ export default function JoinEventAsPhotographer() {
   useEffect(() => {
     eventService
       .joinEventAsPhotographer(eventId, photographerToken)
-      .then(() => {
+      .then(async () => {
         setStatus("success");
         toast.success("Joined as photographer!");
-        setTimeout(() => navigate(`/events/${eventId}`), 1000);
+
+        let target = eventId;
+        try {
+          const res = await eventService.getEvent(eventId);
+          target = res.data.data.event.slug || eventId;
+        } catch {
+          // fall back to the ID; the slug route also accepts it
+        }
+        setTimeout(() => navigate(`/events/${target}`), 1000);
       })
       .catch((err) => {
         setStatus("error");
         setErrorMessage(err.response?.data?.message || "Failed to join as photographer");
       });
-  }, [eventId, photographerToken]);
+  }, [eventId, photographerToken, navigate]);
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4">

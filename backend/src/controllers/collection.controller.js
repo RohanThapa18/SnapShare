@@ -2,6 +2,7 @@ import archiver from "archiver";
 import asyncHandler from "express-async-handler";
 import { Event, MyPhotosCollection, Photo, Purchase, Download, Like, Favourite } from "../models/index.js";
 import { presentPhoto } from "../services/photoPresenter.js";
+import { getInternalFetchUrl } from "../services/cloudinaryService.js";
 import { AppError } from "../utils/AppError.js";
 
 /**
@@ -46,7 +47,6 @@ export const getMyPhotosCollection = asyncHandler(async (req, res) => {
 
 export const downloadMyPhotosZip = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
-  const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType }));
   const [event, collection] = await Promise.all([
     Event.findById(eventId).select("title"),
     MyPhotosCollection.findOne({ eventId, userId: req.user.id }),
@@ -97,7 +97,9 @@ export const downloadMyPhotosZip = asyncHandler(async (req, res) => {
   for (let i = 0; i < authorizedPhotos.length; i++) {
     const photo = authorizedPhotos[i];
     try {
-      const response = await fetch(getInternalFetchUrl(photo.cloudinaryPublicId));
+      const response = await fetch(
+        getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType })
+      );
       if (!response.ok) continue;
       const buffer = Buffer.from(await response.arrayBuffer());
 
