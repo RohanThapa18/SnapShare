@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings } from "lucide-react";
+import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings, Heart, Download, CalendarDays, MapPin, Crown } from "lucide-react";
 import * as eventService from "../services/eventService";
 import * as photoService from "../services/photoService";
 import PhotoCard from "../components/PhotoCard";
@@ -61,7 +61,7 @@ export default function EventDetails() {
   const [passcodeLoading, setPasscodeLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [passcodeCopied, setPasscodeCopied] = useState(false);
-
+  const [descOpen, setDescOpen] = useState(false);
   const isOrganizer = viewerAccess.isOrganizer;
   const [confirmState, setConfirmState] = useState(null);
   const loadEvent = () =>
@@ -91,6 +91,17 @@ export default function EventDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, viewerAccess.isOrganizer]);
 
+  useEffect(() => {
+    if (!viewerAccess.isOrganizer || !eventId) return;
+    const id = setInterval(refreshStats, 15000);
+    const onVisible = () => document.visibilityState === "visible" && refreshStats();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, viewerAccess.isOrganizer]);
   useEffect(() => {
     if (tab === "Gallery" && eventId) loadPhotos();
   }, [tab, album, eventId]);
@@ -131,6 +142,7 @@ export default function EventDetails() {
       const res = await photoService.downloadPhoto(photo._id);
       const filename = filenameFromContentDisposition(res.headers["content-disposition"], `photo_${photo._id}.jpg`);
       triggerBlobDownload(res.data, filename);
+      refreshStats();
       toast.success("Download started");
     } catch (err) {
       toast.error(err.response?.data?.message || "Download failed");
@@ -173,10 +185,12 @@ export default function EventDetails() {
     };
 
     apply(!isLiked, nextCount);
+    setStats((s) => (s ? { ...s, totalLikes: Math.max(0, s.totalLikes + (isLiked ? -1 : 1)) } : s));
     try {
       isLiked ? await photoService.unlikePhoto(photo._id) : await photoService.likePhoto(photo._id);
     } catch (err) {
       apply(isLiked, prevCount);
+      setStats((s) => (s ? { ...s, totalLikes: Math.max(0, s.totalLikes + (isLiked ? 1 : -1)) } : s));
       toast.error(err.response?.data?.message || "Couldn't update like");
     }
   };
@@ -375,77 +389,162 @@ export default function EventDetails() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <BackButton />
-      {event.coverImageUrl && (
-        <div className="mb-6 overflow-hidden rounded-2xl border border-border">
-          <img src={event.coverImageUrl} alt="" className="h-40 w-full object-cover sm:h-56" />
-        </div>
-      )}
-      <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-medium text-primary">{event.title}</h1>
-          <p className="text-text-muted text-sm mt-1">
-            {new Date(event.date).toLocaleDateString()} · {event.location} · {event.status}
-          </p>
-          {(viewerAccess.isOrganizer || viewerAccess.isPhotographer) && (
-            <p className="text-xs text-primary mt-1">
-              {viewerAccess.isOrganizer && "You organize this event"}
-              {viewerAccess.isOrganizer && viewerAccess.isPhotographer && " · "}
-              {viewerAccess.isPhotographer && "You're a photographer for this event"}
-            </p>
+
+      {/* ---------- Hero ---------- */}
+      <div className="mb-6 overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
+        <div className="relative h-52 sm:h-72">
+          {event.coverImageUrl ? (
+            <img src={event.coverImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary via-indigo-700 to-accent" />
           )}
-          {viewerAccess.isOrganizer && event.eventCode && (
-            <button
-              onClick={handleCopyId}
-              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text mt-2 transition max-w-full"
-              aria-label="Copy event ID"
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+
+          <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-md ${
+                event.status === "ACTIVE"
+                  ? "bg-emerald-400/25 text-emerald-50 border border-emerald-300/40"
+                  : "bg-white/20 text-white border border-white/30"
+              }`}
             >
-              {idCopied ? <Check size={12} className="text-success shrink-0" /> : <Copy size={12} className="shrink-0" />}
-              <span>Event ID:</span>
-              <span className="font-mono tracking-widest text-left">{formatEventCode(event.eventCode)}</span>
-            </button>
-          )}
+              {event.status}
+            </span>
+
+            <div className="flex gap-2">
+              {!viewerAccess.isOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
+                <button
+                  onClick={handleLeave}
+                  disabled={leaving}
+                  className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25 disabled:opacity-50"
+                >
+                  <LogOut size={14} />
+                  {leaving ? "Leaving..." : "Leave Event"}
+                </button>
+              )}
+              {isOrganizer && (
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25"
+                >
+                  <Settings size={14} />
+                  Settings
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+            <h1 className="font-display text-3xl font-medium text-white drop-shadow sm:text-4xl">{event.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-white/90">
+              <span className="flex items-center gap-1.5">
+                <CalendarDays size={14} />
+                {new Date(event.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+              </span>
+              {event.location && (
+                <span className="flex items-center gap-1.5">
+                  <MapPin size={14} />
+                  {event.location}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {!viewerAccess.isOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
-          <button
-            onClick={handleLeave}
-            disabled={leaving}
-            className="flex items-center gap-1.5 text-sm text-text-muted hover:text-error border border-border hover:border-error/50 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
-          >
-            <LogOut size={14} />
-            {leaving ? "Leaving..." : "Leave Event"}
-          </button>
-        )}
-        {isOrganizer && (
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary border border-border hover:border-primary/50 px-3 py-1.5 rounded-lg transition"
-          >
-            <Settings size={14} />
-            Settings
-          </button>
+        {(event.description || viewerAccess.isOrganizer || viewerAccess.isPhotographer) && (
+          <div className="space-y-4 p-5 sm:p-6">
+            {event.description && (
+              <div>
+                <p
+                  className={`max-w-3xl whitespace-pre-line text-sm leading-relaxed text-text-muted ${
+                    descOpen ? "" : "line-clamp-3"
+                  }`}
+                >
+                  {event.description}
+                </p>
+                {event.description.length > 180 && (
+                  <button
+                    onClick={() => setDescOpen((v) => !v)}
+                    className="mt-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    {descOpen ? "Show less" : "Read more"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              {viewerAccess.isOrganizer && (
+                <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  <Crown size={12} /> You organize this event
+                </span>
+              )}
+              {viewerAccess.isPhotographer && (
+                <span className="flex items-center gap-1.5 rounded-full bg-accent/20 px-3 py-1 text-xs font-medium text-on-accent">
+                  <CameraIcon size={12} /> You're a photographer
+                </span>
+              )}
+              {viewerAccess.isOrganizer && event.eventCode && (
+                <button
+                  onClick={handleCopyId}
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-surface-sunken px-3 py-1 text-xs text-text-muted transition hover:text-text"
+                  aria-label="Copy event ID"
+                >
+                  {idCopied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                  <span>Event ID</span>
+                  <span className="font-mono tracking-widest">{formatEventCode(event.eventCode)}</span>
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
+      {/* ---------- Stats ---------- */}
       {isOrganizer && stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 animate-fade-in">
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1"><Users size={12} /> Participants</p>
-            <p className="text-xl font-semibold text-primary">{stats.participantCount}</p>
+        <div className="mb-6 grid grid-cols-2 gap-3 animate-fade-in sm:grid-cols-4">
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Users size={18} />
+            </div>
+            <p className="text-xs uppercase tracking-wide text-text-muted">Participants</p>
+            <p className="text-2xl font-semibold text-primary">{stats.participantCount}</p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1"><CameraIcon size={12} /> Photographers</p>
-            <p className="text-xl font-semibold text-primary">{stats.photographerCount}</p>
+
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <CameraIcon size={18} />
+            </div>
+            <p className="text-xs uppercase tracking-wide text-text-muted">Photographers</p>
+            <p className="text-2xl font-semibold text-primary">{stats.photographerCount}</p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1"><ImageIcon size={12} /> Photos</p>
-            <p className="text-xl font-semibold text-primary">{stats.totalPhotos}</p>
-            <p className="text-[11px] text-text-muted mt-0.5">{stats.officialPhotos} official · {stats.communityPhotos} community</p>
+
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ImageIcon size={18} />
+            </div>
+            <p className="text-xs uppercase tracking-wide text-text-muted">Photos</p>
+            <p className="text-2xl font-semibold text-primary">{stats.totalPhotos}</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">
+              {stats.officialPhotos} official · {stats.communityPhotos} community
+            </p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Engagement</p>
-            <p className="text-xl font-semibold text-primary">{stats.totalDownloads}</p>
-            <p className="text-[11px] text-text-muted mt-0.5">downloads · {stats.totalLikes} likes</p>
+
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
+            <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-accent/15" aria-hidden="true" />
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 text-accent">
+              <Heart size={18} className="fill-accent" />
+            </div>
+            <p className="text-xs uppercase tracking-wide text-text-muted">Engagement</p>
+            <div className="flex items-end gap-1.5">
+              <p key={stats.totalLikes} className="animate-scale-in text-2xl font-semibold leading-tight text-primary">
+                {stats.totalLikes}
+              </p>
+              <span className="pb-0.5 text-sm text-text-muted">likes</span>
+            </div>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-muted">
+              <Download size={11} /> {stats.totalDownloads} downloads
+            </p>
           </div>
         </div>
       )}
