@@ -20,7 +20,7 @@ import {
   uploadToCloudinary,
   getOptimizedUrl,
 } from "../services/cloudinaryService.js";
-import { maskEmail } from "../utils/maskEmail.js";
+import { isEventOrganizer, isPrimaryOrganizer } from "../utils/eventRoles.js";
 import { AppError } from "../utils/AppError.js";
 import { encryptPasscode, decryptPasscode } from "../utils/passcodeCipher.js";
 import { EVENT_STATUS, ALBUM_TYPE } from "../constants/enums.js";
@@ -209,7 +209,8 @@ export const getEvent = asyncHandler(async (req, res) => {
       EventParticipant.exists({ eventId: event._id, userId: req.user.id }),
     ]);
     viewerAccess = {
-      isOrganizer: event.organizerId.toString() === req.user.id,
+      isOrganizer: isEventOrganizer(event, req.user.id),
+      isPrimaryOrganizer: isPrimaryOrganizer(event, req.user.id),
       isPhotographer: Boolean(isPhotographer),
       isParticipant: Boolean(isParticipant),
     };
@@ -248,7 +249,8 @@ export const getEventBySlug = asyncHandler(async (req, res) => {
     ]);
 
     viewerAccess = {
-      isOrganizer: event.organizerId.toString() === req.user.id,
+      isOrganizer: isEventOrganizer(event, req.user.id),
+      isPrimaryOrganizer: isPrimaryOrganizer(event, req.user.id),
       isPhotographer: Boolean(isPhotographer),
       isParticipant: Boolean(isParticipant),
     };
@@ -265,19 +267,25 @@ export const getEventBySlug = asyncHandler(async (req, res) => {
 
 export const listMyEvents = asyncHandler(async (req, res) => {
   await expireOverdueEvents();
-  // Events the user organizes, is assigned to as photographer, or has joined
   const [organized, photographing, joined] = await Promise.all([
-    Event.find({ organizerId: req.user.id }).sort({ createdAt: -1 }),
+    Event.find({
+      $or: [{ organizerId: req.user.id }, { coOrganizerIds: req.user.id }],
+    }).sort({ createdAt: -1 }),
     EventPhotographer.find({ userId: req.user.id }).populate("eventId"),
     EventParticipant.find({ userId: req.user.id }).populate("eventId"),
   ]);
   await Promise.all(organized.map(ensureEventCode));
+
+  // co-organizers are also participants — don't list the same event twice
+  const organizedIds = new Set(organized.map((e) => e._id.toString()));
   res.status(200).json({
     success: true,
     data: {
       organized,
       photographing: photographing.map((p) => p.eventId).filter(Boolean),
-      joined: joined.map((j) => j.eventId).filter(Boolean),
+      joined: joined
+        .map((j) => j.eventId)
+        .filter((e) => e && !organizedIds.has(e._id.toString())),
     },
   });
 });
@@ -490,6 +498,7 @@ export const leaveEvent = asyncHandler(async (req, res) => {
   await Promise.all([
     EventParticipant.findOneAndDelete({ eventId, userId: req.user.id }),
     EventPhotographer.findOneAndDelete({ eventId, userId: req.user.id }),
+    Event.updateOne({ _id: eventId }, { $pull: { coOrganizerIds: req.user.id } }),
   ]);
 
   res.status(200).json({ success: true, message: "Left event" });
@@ -498,11 +507,14 @@ export const leaveEvent = asyncHandler(async (req, res) => {
 export const getParticipants = asyncHandler(async (req, res) => {
   const { search = "", page = 1, limit = 20 } = req.query;
 
-  // Only the organizer gets email addresses. For everyone else the field
-  // is never even loaded from the database.
-  const event = await Event.findById(req.params.id).select("organizerId");
+  // Only organizers get email addresses.
+  const event = await Event.findById(req.params.id).select("organizerId coOrganizerIds");
   if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
-  const isOrganizer = event.organizerId.toString() === req.user.id;
+  const isOrganizer = isEventOrganizer(event, req.user.id);
+  const organizerIds = new Set([
+    event.organizerId.toString(),
+    ...(event.coOrganizerIds || []).map((id) => id.toString()),
+  ]);
 
   const participants = await EventParticipant.find({ eventId: req.params.id })
     .populate({
@@ -513,7 +525,15 @@ export const getParticipants = asyncHandler(async (req, res) => {
     .skip((page - 1) * limit)
     .limit(Number(limit));
 
-  const filtered = participants.filter((p) => p.userId).map((p) => p.toObject());
+  const filtered = participants
+    .filter((p) => p.userId)
+    .map((p) => {
+      const obj = p.toObject();
+      const uid = obj.userId._id.toString();
+      obj.isOrganizer = organizerIds.has(uid);
+      obj.isPrimaryOrganizer = uid === event.organizerId.toString();
+      return obj;
+    });
 
   const total = await EventParticipant.countDocuments({ eventId: req.params.id });
 
@@ -524,11 +544,52 @@ export const getParticipants = asyncHandler(async (req, res) => {
 });
 
 export const removeParticipant = asyncHandler(async (req, res) => {
-  await EventParticipant.findOneAndDelete({
-    eventId: req.params.id,
-    userId: req.params.userId,
-  });
+  const { id: eventId, userId } = req.params;
+  const event = await Event.findById(eventId).select("organizerId coOrganizerIds");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  if (isPrimaryOrganizer(event, userId)) {
+    throw new AppError("The event owner can't be removed", 400, "CANNOT_REMOVE_OWNER");
+  }
+  if (isEventOrganizer(event, userId) && !isPrimaryOrganizer(event, req.user.id)) {
+    throw new AppError("Only the event owner can remove another organizer", 403, "NOT_EVENT_OWNER");
+  }
+
+  await Promise.all([
+    EventParticipant.findOneAndDelete({ eventId, userId }),
+    Event.updateOne({ _id: eventId }, { $pull: { coOrganizerIds: userId } }),
+  ]);
   res.status(200).json({ success: true, message: "Participant removed" });
+});
+
+export const addCoOrganizer = asyncHandler(async (req, res) => {
+  const { id: eventId, userId } = req.params;
+  if (!mongoose.isValidObjectId(userId)) {
+    throw new AppError("Invalid user id", 400, "INVALID_USER_ID");
+  }
+
+  const event = await Event.findById(eventId).select("organizerId coOrganizerIds");
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+
+  if (isEventOrganizer(event, userId)) {
+    throw new AppError("This person is already an organizer", 409, "ALREADY_ORGANIZER");
+  }
+  const isParticipant = await EventParticipant.exists({ eventId, userId });
+  if (!isParticipant) {
+    throw new AppError("Only participants of this event can be made organizers", 400, "NOT_A_PARTICIPANT");
+  }
+
+  await Event.updateOne({ _id: eventId }, { $addToSet: { coOrganizerIds: userId } });
+  res.status(200).json({ success: true, message: "Participant is now an organizer" });
+});
+
+export const removeCoOrganizer = asyncHandler(async (req, res) => {
+  const { id: eventId, userId } = req.params;
+  if (!mongoose.isValidObjectId(userId)) {
+    throw new AppError("Invalid user id", 400, "INVALID_USER_ID");
+  }
+  await Event.updateOne({ _id: eventId }, { $pull: { coOrganizerIds: userId } });
+  res.status(200).json({ success: true, message: "Organizer role removed" });
 });
 
 export const getJoinQr = asyncHandler(async (req, res) => {

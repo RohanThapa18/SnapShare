@@ -1,6 +1,6 @@
 import { Event, EventParticipant, EventPhotographer } from "../models/index.js";
 import { AppError } from "../utils/AppError.js";
-
+import { isEventOrganizer, isPrimaryOrganizer } from "../utils/eventRoles.js";
 /**
  * Verifies the authenticated user has joined the event as a participant.
  * Used to gate Find My Photos, community uploads, likes/favourites, etc.
@@ -23,18 +23,36 @@ export const requireEventParticipant = async (req, res, next) => {
   }
 };
 
-/**
- * Verifies the authenticated user is the organizer who owns this event.
- */
+
 export const requireEventOwner = async (req, res, next) => {
   try {
     const eventId = req.params.eventId || req.params.id;
-    const event = await Event.findById(eventId).select("organizerId");
+    const event = await Event.findById(eventId).select("organizerId coOrganizerIds");
     if (!event) {
       throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
     }
-    if (event.organizerId.toString() !== req.user.id) {
-      throw new AppError("Only the event organizer can perform this action", 403, "NOT_EVENT_OWNER");
+    if (!isEventOrganizer(event, req.user.id)) {
+      throw new AppError("Only event organizers can perform this action", 403, "NOT_EVENT_OWNER");
+    }
+    req.event = event;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Only the original owner (the person who created the event).
+ */
+export const requireEventPrimaryOwner = async (req, res, next) => {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    const event = await Event.findById(eventId).select("organizerId coOrganizerIds");
+    if (!event) {
+      throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+    }
+    if (!isPrimaryOrganizer(event, req.user.id)) {
+      throw new AppError("Only the event owner can perform this action", 403, "NOT_EVENT_OWNER");
     }
     req.event = event;
     next();

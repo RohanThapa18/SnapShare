@@ -127,3 +127,12 @@ export const downloadMyPhotosZip = asyncHandler(async (req, res) => {
     ).catch(() => { });
   }
 });
+
+/**
+ * Clears the user's saved "My Photos" results for this event
+ * (used by "Search again" so old matches don't come back on revisit).
+ */
+export const clearMyPhotosCollection = asyncHandler(async (req, res) => {
+  await MyPhotosCollection.deleteOne({ eventId: req.params.id, userId: req.user.id });
+  res.status(200).json({ success: true, message: "Saved results cleared" });
+});

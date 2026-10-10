@@ -16,6 +16,7 @@ import { presentPhoto } from "../services/photoPresenter.js";
 import { enqueuePhotoForAiProcessing } from "../queues/aiProcessing.queue.js";
 import { AppError } from "../utils/AppError.js";
 import { ALBUM_TYPE } from "../constants/enums.js";
+import { isEventOrganizer } from "../utils/eventRoles.js";
 
 const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) => {
   const type = "authenticated";
@@ -194,8 +195,8 @@ export const deletePhoto = asyncHandler(async (req, res) => {
 
   let isOrganizer = false;
   if (!isUploader) {
-    const event = await Event.findById(photo.eventId).select("organizerId");
-    isOrganizer = Boolean(event && event.organizerId.toString() === req.user.id);
+    const event = await Event.findById(photo.eventId).select("organizerId coOrganizerIds");
+    isOrganizer = Boolean(event && isEventOrganizer(event, req.user.id));
   }
 
   if (!isUploader && !isOrganizer) {

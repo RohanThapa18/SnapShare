@@ -26,6 +26,7 @@ export default function PhotoLightbox({
   onDownload,
   onLike,
   onDelete,
+  canDelete,
   onFavourite,
   likedIds,
   favouritedIds,
@@ -197,18 +198,18 @@ export default function PhotoLightbox({
             </button>
           )}
           {onDownload &&
-  (!photo.isPaid || Number(photo.price) <= 0 || photo.purchased) && (
-            <button
-              onClick={() => onDownload(photo)}
-              disabled={isDownloading}
-              className="flex items-center gap-1.5 text-white/90 hover:text-white transition text-sm disabled:opacity-60"
-              aria-label="Download photo"
-            >
-              {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-              {isDownloading ? "Downloading…" : "Download"}
-            </button>
-          )}
-          {onDelete && (
+            (!photo.isPaid || Number(photo.price) <= 0 || photo.purchased) && (
+              <button
+                onClick={() => onDownload(photo)}
+                disabled={isDownloading}
+                className="flex items-center gap-1.5 text-white/90 hover:text-white transition text-sm disabled:opacity-60"
+                aria-label="Download photo"
+              >
+                {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                {isDownloading ? "Downloading…" : "Download"}
+              </button>
+            )}
+          {onDelete && (!canDelete || canDelete(photo)) && (
             <button
               onClick={() => onDelete(photo)}
               className="flex items-center gap-1.5 text-white/90 hover:text-red-400 transition text-sm"
@@ -217,7 +218,7 @@ export default function PhotoLightbox({
               <Trash2 size={18} />
             </button>
           )}
-         
+
         </div>
       </div>
     </div>

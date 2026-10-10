@@ -25,6 +25,7 @@ const eventSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    coOrganizerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }],
 
     // Passcode is bcrypt-hashed at creation time and remains the source
     // of truth for verifying a join attempt — never decrypted or
