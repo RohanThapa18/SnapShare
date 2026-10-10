@@ -20,7 +20,26 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ style: { background: "#1E293B", color: "#fff" } }} />
+        <Toaster
+          position="bottom-center"
+          gutter={10}
+          containerStyle={{ bottom: 28 }}
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: "#ffffff",
+              color: "#172033",
+              border: "1px solid #e4e7ec",
+              borderRadius: "14px",
+              padding: "12px 16px",
+              fontSize: "14px",
+              fontWeight: 500,
+              boxShadow: "0 12px 32px rgba(16, 24, 40, 0.14)",
+            },
+            success: { iconTheme: { primary: "#3b8a68", secondary: "#ffffff" } },
+            error: { iconTheme: { primary: "#c65a5a", secondary: "#ffffff" } },
+          }}
+        />
         <Navbar />
         <Routes>
           <Route path="/" element={<Landing />} />
