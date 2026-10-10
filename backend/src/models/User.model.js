@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true, select: false },
     avatarUrl: { type: String, default: null },
     isActive: { type: Boolean, default: true },
+    passwordChangedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

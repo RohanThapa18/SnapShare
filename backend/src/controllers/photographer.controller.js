@@ -30,9 +30,9 @@ export const addPhotographer = asyncHandler(async (req, res) => {
 
   // Same as the self-join path: a photographer is also a participant,
   // otherwise participant-gated event/gallery routes return 403.
-  await EventParticipant.findOneAndUpdate(
+    await EventParticipant.updateOne(
     { eventId, userId: photographer._id },
-    { eventId, userId: photographer._id },
+    { $setOnInsert: { eventId, userId: photographer._id } },
     { upsert: true }
   );
 

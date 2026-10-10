@@ -1,24 +1,33 @@
 import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
-import { Photo, Payment, Purchase } from "../models/index.js";
+import { Event, EventParticipant, Photo, Payment, Purchase } from "../models/index.js";
+import { PAYMENT_STATUS, PURCHASE_TYPE, EVENT_STATUS } from "../constants/enums.js";
 import { createRazorpayOrder, verifyRazorpaySignature } from "../services/paymentService.js";
 import { AppError } from "../utils/AppError.js";
-import { PAYMENT_STATUS, PURCHASE_TYPE, ALBUM_TYPE } from "../constants/enums.js";
 
-/**
- * Creates a Razorpay order for a single photo or an entire album by a
- * given photographer within an event. Amount is always computed
- * server-side from the Photo document(s) — never trusted from the client.
- */
+
 export const createOrder = asyncHandler(async (req, res) => {
-  const { eventId, purchaseType, photoId, album } = req.body;
+  const { eventId, purchaseType, photoId, album, photographerId: requestedPhotographerId } = req.body;
 
-  let amount = 0;
+  // Only joined participants of a still-active event can start a purchase
+  const [event, membership] = await Promise.all([
+    Event.findById(eventId).select("status expiryDate"),
+    EventParticipant.exists({ eventId, userId: req.user.id }),
+  ]);
+  if (!event) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
+  if (!membership) throw new AppError("You must join this event before buying photos", 403, "NOT_EVENT_MEMBER");
+  if (event.status !== EVENT_STATUS.ACTIVE || event.expiryDate < new Date()) {
+    throw new AppError("This event has expired, so new purchases are disabled", 403, "EVENT_EXPIRED");
+  }
+
+  let amount = 0; // rupees
   let photographerId = null;
   let resolvedPhotoId = null;
   let resolvedAlbum = null;
 
   if (purchaseType === PURCHASE_TYPE.PHOTO) {
+    if (!photoId) throw new AppError("photoId is required for photo purchases", 400, "PHOTO_ID_REQUIRED");
+
     const photo = await Photo.findOne({ _id: photoId, eventId });
     if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
     if (!photo.isPaid || Number(photo.price) <= 0) throw new AppError("This photo is free — no purchase needed", 400, "PHOTO_NOT_PAID");
@@ -30,18 +39,26 @@ export const createOrder = asyncHandler(async (req, res) => {
     photographerId = photo.uploaderId;
     resolvedPhotoId = photo._id;
   } else {
-    // ALBUM purchase: sum of all paid, un-purchased OFFICIAL photos by one photographer
+    // ALBUM purchase: every paid photo ONE photographer has in this album that the buyer doesn't own yet
     if (!album) throw new AppError("album is required for album purchases", 400, "ALBUM_REQUIRED");
+    if (!requestedPhotographerId) {
+      throw new AppError("photographerId is required for album purchases", 400, "PHOTOGRAPHER_REQUIRED");
+    }
 
+    const ownedPhotoIds = await Purchase.find({ userId: req.user.id, eventId }).distinct("photoId");
     const photos = await Photo.find({
       eventId,
       album,
+      uploaderId: requestedPhotographerId,
       isPaid: true,
       price: { $gt: 0 },
+      _id: { $nin: ownedPhotoIds },
     });
-    if (!photos.length) throw new AppError("No paid photos found in this album", 404, "NO_PAID_PHOTOS");
+    if (!photos.length) {
+      throw new AppError("Nothing left to buy from this photographer in this album", 404, "NO_PAID_PHOTOS");
+    }
 
-    photographerId = photos[0].uploaderId;
+    photographerId = requestedPhotographerId;
     amount = photos.reduce((sum, p) => sum + p.price, 0);
     resolvedAlbum = album;
   }
@@ -72,27 +89,26 @@ export const createOrder = asyncHandler(async (req, res) => {
       amount: amountInPaise,
       currency: order.currency,
       paymentRecordId: payment._id,
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID, // public key id — safe for frontend
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     },
   });
 });
 
-/**
- * Verifies the Razorpay signature server-side, then — and only then —
- * marks the Payment SUCCESS and creates the permanent Purchase
- * record(s) that unlock downloads.
- */
 export const verifyPayment = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
   const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
   if (!payment) throw new AppError("Payment record not found", 404, "PAYMENT_NOT_FOUND");
+
   if (payment.userId.toString() !== req.user.id) {
-    throw new AppError("Not your payment", 403, "FORBIDDEN");
+    throw new AppError("This payment belongs to another account", 403, "NOT_YOUR_PAYMENT");
   }
+
+  // Retrying (flaky network, double click) must be harmless
   if (payment.status === PAYMENT_STATUS.SUCCESS) {
-    return res.status(200).json({ success: true, message: "Already verified" });
+    return res.status(200).json({ success: true, message: "Payment already verified, content unlocked" });
   }
+
   const isValid = verifyRazorpaySignature({
     orderId: razorpay_order_id,
     paymentId: razorpay_payment_id,
@@ -105,42 +121,46 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new AppError("Payment signature verification failed", 400, "INVALID_SIGNATURE");
   }
 
+  // Unlock first (idempotent upserts), THEN mark SUCCESS, so a crash in the
+  // middle can be retried instead of leaving a paid-but-locked purchase.
+  const photos =
+    payment.purchaseType === PURCHASE_TYPE.PHOTO
+      ? await Photo.find({ _id: payment.photoId })
+      : await Photo.find({
+        eventId: payment.eventId,
+        album: payment.albumId,
+        isPaid: true,
+        uploaderId: payment.photographerId,
+      });
+
+  if (photos.length) {
+    await Purchase.bulkWrite(
+      photos.map((photo) => ({
+        updateOne: {
+          filter: { userId: payment.userId, photoId: photo._id },
+          update: {
+            $setOnInsert: {
+              userId: payment.userId,
+              eventId: payment.eventId,
+              photographerId: payment.photographerId,
+              purchaseType: PURCHASE_TYPE.PHOTO,
+              photoId: photo._id,
+              paymentId: payment._id,
+              // always paise, same unit as single-photo purchases (price is in rupees)
+              amountPaid:
+                payment.purchaseType === PURCHASE_TYPE.PHOTO ? payment.amount : Math.round(photo.price * 100),
+            },
+          },
+          upsert: true,
+        },
+      }))
+    );
+  }
+
   payment.status = PAYMENT_STATUS.SUCCESS;
   payment.razorpayPaymentId = razorpay_payment_id;
   payment.razorpaySignature = razorpay_signature;
   await payment.save();
-
-  if (payment.purchaseType === PURCHASE_TYPE.PHOTO) {
-    await Purchase.create({
-      userId: payment.userId,
-      eventId: payment.eventId,
-      photographerId: payment.photographerId,
-      purchaseType: PURCHASE_TYPE.PHOTO,
-      photoId: payment.photoId,
-      paymentId: payment._id,
-      amountPaid: payment.amount,
-    });
-  } else {
-    const photos = await Photo.find({
-      eventId: payment.eventId,
-      album: payment.albumId,
-      isPaid: true,
-      uploaderId: payment.photographerId,
-    });
-
-    await Purchase.insertMany(
-      photos.map((photo) => ({
-        userId: payment.userId,
-        eventId: payment.eventId,
-        photographerId: payment.photographerId,
-        purchaseType: PURCHASE_TYPE.PHOTO, // each photo in the album gets its own entitlement record
-        photoId: photo._id,
-        paymentId: payment._id,
-        amountPaid: photo.price,
-      })),
-      { ordered: false } // tolerate duplicates if user retries verification
-    ).catch(() => { }); // unique index on (userId, photoId) guards against double-grants
-  }
 
   res.status(200).json({ success: true, message: "Payment verified, content unlocked" });
 });

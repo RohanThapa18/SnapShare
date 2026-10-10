@@ -91,7 +91,12 @@ export const changePassword = asyncHandler(async (req, res) => {
   }
 
   user.passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  user.passwordChangedAt = new Date();
   await user.save();
 
-  res.status(200).json({ success: true, message: "Password updated" });
+  // Every older token is now invalid, so give THIS session a fresh one
+  const token = signToken(user._id.toString());
+  res.cookie("token", token, cookieOptions());
+
+  res.status(200).json({ success: true, message: "Password updated", data: { token } });
 });

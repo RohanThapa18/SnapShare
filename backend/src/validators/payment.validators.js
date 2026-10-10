@@ -7,6 +7,7 @@ export const createOrderSchema = z.object({
     purchaseType: z.enum([PURCHASE_TYPE.PHOTO, PURCHASE_TYPE.ALBUM]),
     photoId: z.string().optional(),
     album: z.enum(["OFFICIAL", "COMMUNITY"]).optional(),
+    photographerId: z.string().optional(), // required for album purchases
   }),
 });
 
