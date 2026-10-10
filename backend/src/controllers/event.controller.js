@@ -109,7 +109,7 @@ export const createEvent = asyncHandler(async (req, res) => {
     const passcodeEncrypted = encryptPasscode(plainPasscode);
     const joinToken = generateJoinToken();
     const photographerJoinToken = generateJoinToken();
-        const eventCode = await createUniqueEventCode();
+    const eventCode = await createUniqueEventCode();
     const photographerPasscode = generatePasscode();
     const photographerPasscodeHash = await bcrypt.hash(photographerPasscode, PASSCODE_SALT_ROUNDS);
     const photographerPasscodeEncrypted = encryptPasscode(photographerPasscode);
@@ -228,7 +228,7 @@ export const getEventBySlug = asyncHandler(async (req, res) => {
   if (!event) {
     throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
   }
-await ensureEventCode(event);
+  await ensureEventCode(event);
   let viewerAccess = {
     isOrganizer: false,
     isPhotographer: false,
@@ -288,14 +288,14 @@ export const updateEvent = asyncHandler(async (req, res) => {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
   });
 
-  if (updates.expiryDate) {
-    const existing = await Event.findById(req.params.id).select("date status");
+  if (updates.expiryDate || updates.date) {
+    const existing = await Event.findById(req.params.id).select("date expiryDate status");
     if (!existing) throw new AppError("Event not found", 404, "EVENT_NOT_FOUND");
 
-    const newExpiry = new Date(updates.expiryDate);
     const eventDate = updates.date ? new Date(updates.date) : existing.date;
+    const newExpiry = updates.expiryDate ? new Date(updates.expiryDate) : existing.expiryDate;
 
-    if (newExpiry <= new Date()) {
+    if (updates.expiryDate && newExpiry <= new Date()) {
       throw new AppError("Expiry date must be in the future", 400, "INVALID_EXPIRY");
     }
     if (newExpiry <= eventDate) {
@@ -303,7 +303,7 @@ export const updateEvent = asyncHandler(async (req, res) => {
     }
 
     // A future expiry re-activates an event that had already expired.
-    if (existing.status === EVENT_STATUS.EXPIRED) {
+    if (updates.expiryDate && existing.status === EVENT_STATUS.EXPIRED) {
       updates.status = EVENT_STATUS.ACTIVE;
     }
   }
@@ -336,11 +336,11 @@ export const updateEventCover = asyncHandler(async (req, res) => {
     event.coverImagePublicId = uploaded.public_id;
     await event.save();
   } catch (err) {
-    await deleteCloudinaryAsset(uploaded.public_id).catch(() => {});
+    await deleteCloudinaryAsset(uploaded.public_id).catch(() => { });
     throw err;
   }
 
-  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => { });
 
   res.status(200).json({
     success: true,
@@ -358,7 +358,7 @@ export const removeEventCover = asyncHandler(async (req, res) => {
   event.coverImagePublicId = null;
   await event.save();
 
-  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => { });
 
   res.status(200).json({
     success: true,
@@ -409,7 +409,7 @@ export const joinEvent = asyncHandler(async (req, res) => {
     if (!match) throw new AppError("Incorrect passcode", 400, "INVALID_PASSCODE");
   }
 
-   const existing = await EventParticipant.findOne({ eventId, userId: req.user.id });
+  const existing = await EventParticipant.findOne({ eventId, userId: req.user.id });
   if (existing) {
     return res
       .status(200)
@@ -460,7 +460,7 @@ export const joinEventAsPhotographer = asyncHandler(async (req, res) => {
     { upsert: true }
   );
 
-        res.status(200).json({
+  res.status(200).json({
     success: true,
     message: "Joined event as photographer",
     data: { eventId: event._id },

@@ -14,7 +14,7 @@ import aiRoutes from "./routes/ai.routes.js";
 import collectionRoutes from "./routes/collection.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
-
+import { originCheck } from "./middleware/originCheck.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -28,8 +28,8 @@ app.use(
     credentials: true,
   })
 );
+app.use(originCheck);
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 if (process.env.NODE_ENV !== "production") {

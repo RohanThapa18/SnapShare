@@ -23,6 +23,16 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
     return () => previews.forEach((p) => URL.revokeObjectURL(p.url));
   }, [previews]);
 
+  const handleFiles = (fileList) => setFiles((prev) => [...prev, ...Array.from(fileList)]);
+  const removeFile = (idx) => setFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  // Every hook must run on every render, so this lives ABOVE the early return below.
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(false);
+    setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)]);
+  }, []);
+
   if (!canUploadOfficial && !canUploadCommunity) {
     return (
       <p className="text-text-muted text-sm">
@@ -30,15 +40,6 @@ export default function PhotoUploader({ eventId, canUploadOfficial, canUploadCom
       </p>
     );
   }
-
-  const handleFiles = (fileList) => setFiles((prev) => [...prev, ...Array.from(fileList)]);
-  const removeFile = (idx) => setFiles((prev) => prev.filter((_, i) => i !== idx));
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFiles(e.dataTransfer.files);
-  }, []);
 
   const handleUpload = async () => {
     if (!files.length) return;

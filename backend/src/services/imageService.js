@@ -22,6 +22,7 @@ export const processImage = async (buffer) => {
   const MAX_DIMENSION = 4000;
 
   const processed = await sharp(buffer)
+    .flatten({ background: "#ffffff" }) // transparent areas would otherwise turn black in a JPEG
     .rotate() // auto-orient based on EXIF, then strip EXIF for privacy (location data etc.)
     .resize({
       width: MAX_DIMENSION,

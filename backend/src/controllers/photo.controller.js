@@ -44,7 +44,7 @@ const uploadOne = async (file, { eventId, uploaderId, album, isPaid, price }) =>
     });
   } catch (err) {
     // Don't leave an orphaned asset in Cloudinary if the DB write fails.
-    await deleteCloudinaryAsset(cloudinaryResult.public_id, type).catch(() => {});
+    await deleteCloudinaryAsset(cloudinaryResult.public_id, type).catch(() => { });
     throw err;
   }
 
@@ -143,7 +143,9 @@ export const uploadCommunityPhotos = asyncHandler(async (req, res) => {
  */
 export const listPhotos = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
-  const { album, page = 1, limit = 24, sort = "latest", uploaderId } = req.query;
+  const { album, sort = "latest", uploaderId } = req.query;
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
 
   const filter = { eventId };
   if (album) filter.album = album;
@@ -173,7 +175,7 @@ export const listPhotos = asyncHandler(async (req, res) => {
     favouritedPhotoIds = new Set(favourites.map((f) => f.photoId.toString()));
   }
 
-   const enriched = photos.map((photo) => ({
+  const enriched = photos.map((photo) => ({
     ...presentPhoto(photo, { purchased: purchasedPhotoIds.has(photo._id.toString()) }),
     likedByMe: likedPhotoIds.has(photo._id.toString()),
     favouritedByMe: favouritedPhotoIds.has(photo._id.toString()),
@@ -204,7 +206,7 @@ export const deletePhoto = asyncHandler(async (req, res) => {
     );
   }
 
-await deleteCloudinaryAsset(photo.cloudinaryPublicId, photo.deliveryType);
+  await deleteCloudinaryAsset(photo.cloudinaryPublicId, photo.deliveryType);
   await Promise.all([
     Photo.findByIdAndDelete(photo._id),
     Like.deleteMany({ photoId: photo._id }),
@@ -240,7 +242,7 @@ export const updatePhotoMeta = asyncHandler(async (req, res) => {
  * verified Purchase record exists — enforced here, not just hidden in UI.
  */
 export const downloadPhoto = asyncHandler(async (req, res) => {
- const photo = await Photo.findById(req.params.photoId);
+  const photo = await Photo.findById(req.params.photoId);
   if (!photo) throw new AppError("Photo not found", 404, "PHOTO_NOT_FOUND");
 
   const membership = await EventParticipant.findOne({ eventId: photo.eventId, userId: req.user.id });
@@ -249,21 +251,31 @@ export const downloadPhoto = asyncHandler(async (req, res) => {
   }
 
   if (photo.isPaid) {
-    const purchase = await Purchase.findOne({ userId: req.user.id, photoId: photo._id });
-    if (!purchase) {
-      throw new AppError("Purchase this photo to download the full-resolution version", 402, "NOT_PURCHASED");
+    // The photographer who uploaded it, and the event organizer, don't pay for it.
+    const isUploader = photo.uploaderId.toString() === req.user.id;
+    let isOrganizer = false;
+    if (!isUploader) {
+      const event = await Event.findById(photo.eventId).select("organizerId");
+      isOrganizer = Boolean(event && event.organizerId.toString() === req.user.id);
+    }
+
+    if (!isUploader && !isOrganizer) {
+      const purchase = await Purchase.findOne({ userId: req.user.id, photoId: photo._id });
+      if (!purchase) {
+        throw new AppError("Purchase this photo to download the full-resolution version", 402, "NOT_PURCHASED");
+      }
     }
   }
 
   const response = await fetch(
-  getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType })
-);
-if (!response.ok) {
-  console.error(
-    `[download] Cloudinary returned ${response.status} for ${photo.cloudinaryPublicId} (${photo.deliveryType})`
+    getInternalFetchUrl(photo.cloudinaryPublicId, { type: photo.deliveryType })
   );
-  throw new AppError("Could not fetch photo from storage", 502, "CLOUDINARY_FETCH_FAILED");
-}
+  if (!response.ok) {
+    console.error(
+      `[download] Cloudinary returned ${response.status} for ${photo.cloudinaryPublicId} (${photo.deliveryType})`
+    );
+    throw new AppError("Could not fetch photo from storage", 502, "CLOUDINARY_FETCH_FAILED");
+  }
 
   photo.downloadCount += 1;
   await photo.save();
@@ -296,13 +308,13 @@ export const syncEventPhotosWithCloudinary = asyncHandler(async (req, res) => {
     return res.status(200).json({ success: true, data: { checked: 0, removed: 0 } });
   }
 
-   const stillExisting = await checkExistingPhotos(photos);
+  const stillExisting = await checkExistingPhotos(photos);
 
   const orphaned = photos.filter((p) => !stillExisting.has(p.cloudinaryPublicId));
 
   // If everything (or most of a big event) looks "missing", the lookup is
   // almost certainly wrong, not the photos. Refuse to delete anything.
-    // If everything (or most of a big event) looks "missing", double-check
+  // If everything (or most of a big event) looks "missing", double-check
   // against the event's folders on Cloudinary before deleting. Empty folders
   // mean the photos really are gone; files present mean the lookup is wrong.
   if (

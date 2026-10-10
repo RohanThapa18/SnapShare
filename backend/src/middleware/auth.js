@@ -30,7 +30,10 @@ export const requireAuth = async (req, res, next) => {
     if (!user || !user.isActive) {
       throw new AppError("User not found or inactive", 401, "USER_INACTIVE");
     }
-
+    // A password change signs out every session that existed before it
+    if (user.passwordChangedAt && decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)) {
+      throw new AppError("Your session has expired, please log in again", 401, "TOKEN_REVOKED");
+    }
     req.user = { id: user._id.toString(), email: user.email };
     next();
   } catch (err) {
