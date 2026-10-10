@@ -8,6 +8,7 @@ import {
   CalendarDays,
   FolderOpen,
   ArrowUpRight,
+  MapPin,
 } from "lucide-react";
 
 import * as eventService from "../services/eventService";
@@ -94,15 +95,35 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="p-4">
-        <h3 className="truncate text-base font-semibold text-slate-800 transition-colors duration-200 group-hover:text-indigo-700">
+      <div className="bg-gradient-to-br from-white to-indigo-50/70 p-4">
+        <h3 className="truncate text-base font-semibold text-indigo-950 transition-colors duration-200 group-hover:text-indigo-700">
           {event.title}
         </h3>
 
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-          <CalendarDays size={13} />
-          {new Date(event.date).toLocaleDateString()} · {event.status}
-        </p>
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <p className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-slate-500">
+            <CalendarDays size={13} className="text-indigo-400" />
+            {new Date(event.date).toLocaleDateString()}
+            <span
+              className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.status === "ACTIVE"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-slate-100 text-slate-500"
+                }`}
+            >
+              {event.status}
+            </span>
+          </p>
+
+          {event.location && (
+            <p
+              className="flex min-w-0 items-center gap-1 text-xs font-medium text-indigo-600"
+              title={event.location}
+            >
+              <MapPin size={13} className="shrink-0" />
+              <span className="truncate">{event.location}</span>
+            </p>
+          )}
+        </div>
       </div>
     </Link>
   );

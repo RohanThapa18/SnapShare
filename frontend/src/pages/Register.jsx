@@ -32,9 +32,13 @@ export default function Register() {
     setLoading(true);
 
     try {
-      navigate(redirectTo, { replace: true });
+      await register({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
       toast.success("Account created!");
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       toast.error(
         err.response?.data?.message ||

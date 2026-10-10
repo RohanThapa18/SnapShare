@@ -15,7 +15,7 @@ const router = Router();
 // Tighter rate limit on auth endpoints specifically — brute force protection
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: process.env.NODE_ENV === "production" ? 30 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts, please try again later", code: "RATE_LIMITED" },
