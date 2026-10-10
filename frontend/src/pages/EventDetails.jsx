@@ -22,11 +22,13 @@ import PasscodeCard from "../components/PasscodeCard";
 import { formatEventCode } from "../utils/eventCode";
 import EventIdCard from "../components/EventIdCard";
 import CoverImageCard from "../components/CoverImageCard";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
 import { nowLocalInput } from "../utils/datetime";
 export default function EventDetails() {
   const { slug } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
 
@@ -34,7 +36,7 @@ export default function EventDetails() {
   // viewerAccess reflects how the CURRENT user relates to THIS specific
   // event — there's no global role, so this replaces the old
   // user.role === "PHOTOGRAPHER" style checks.
-  const [viewerAccess, setViewerAccess] = useState({ isOrganizer: false, isPhotographer: false, isParticipant: false });
+  const [viewerAccess, setViewerAccess] = useState({ isOrganizer: false, isPrimaryOrganizer: false, isPhotographer: false, isParticipant: false });
   const [album, setAlbum] = useState("OFFICIAL");
   const [photos, setPhotos] = useState([]);
   const [tab, setTab] = useState("Gallery");
@@ -63,6 +65,9 @@ export default function EventDetails() {
   const [passcodeCopied, setPasscodeCopied] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const isOrganizer = viewerAccess.isOrganizer;
+  const isPrimaryOrganizer = viewerAccess.isPrimaryOrganizer;
+  // organizers can delete any photo; everyone else only their own uploads
+  const canDeletePhoto = (photo) => isOrganizer || String(photo.uploaderId) === String(user?._id);
   const [confirmState, setConfirmState] = useState(null);
   const loadEvent = () =>
     eventService.getEventBySlug(slug).then((res) => {
@@ -91,6 +96,19 @@ export default function EventDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, viewerAccess.isOrganizer]);
 
+  const [warmTabs, setWarmTabs] = useState([]);
+
+  // Mount (and start loading) a heavy tab early, e.g. on hover, then keep it alive.
+  const warmTab = (t) => {
+    if ((t === "Participants" || t === "Photographers") && !warmTabs.includes(t)) {
+      setWarmTabs((prev) => [...prev, t]);
+    }
+  };
+
+  useEffect(() => {
+    warmTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
   useEffect(() => {
     if (!viewerAccess.isOrganizer || !eventId) return;
     const id = setInterval(refreshStats, 15000);
@@ -402,17 +420,16 @@ export default function EventDetails() {
 
           <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
             <span
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-md ${
-                event.status === "ACTIVE"
-                  ? "bg-emerald-400/25 text-emerald-50 border border-emerald-300/40"
-                  : "bg-white/20 text-white border border-white/30"
-              }`}
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-md ${event.status === "ACTIVE"
+                ? "bg-emerald-400/25 text-emerald-50 border border-emerald-300/40"
+                : "bg-white/20 text-white border border-white/30"
+                }`}
             >
               {event.status}
             </span>
 
             <div className="flex gap-2">
-              {!viewerAccess.isOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
+              {!viewerAccess.isPrimaryOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
                 <button
                   onClick={handleLeave}
                   disabled={leaving}
@@ -422,7 +439,7 @@ export default function EventDetails() {
                   {leaving ? "Leaving..." : "Leave Event"}
                 </button>
               )}
-              {isOrganizer && (
+              {isPrimaryOrganizer && (
                 <button
                   onClick={() => setShowSettings(true)}
                   className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25"
@@ -456,9 +473,8 @@ export default function EventDetails() {
             {event.description && (
               <div>
                 <p
-                  className={`max-w-3xl whitespace-pre-line text-sm leading-relaxed text-text-muted ${
-                    descOpen ? "" : "line-clamp-3"
-                  }`}
+                  className={`max-w-3xl whitespace-pre-line text-sm leading-relaxed text-text-muted ${descOpen ? "" : "line-clamp-3"
+                    }`}
                 >
                   {event.description}
                 </p>
@@ -474,9 +490,9 @@ export default function EventDetails() {
             )}
 
             <div className="flex flex-wrap items-center gap-2">
-              {viewerAccess.isOrganizer && (
+              {viewerAccess.isPrimaryOrganizer && (
                 <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  <Crown size={12} /> You organize this event
+                  <Crown size={12} /> You are the primary organizer of this event
                 </span>
               )}
               {viewerAccess.isPhotographer && (
@@ -484,7 +500,7 @@ export default function EventDetails() {
                   <CameraIcon size={12} /> You're a photographer
                 </span>
               )}
-              {viewerAccess.isOrganizer && event.eventCode && (
+              {viewerAccess.isPrimaryOrganizer && event.eventCode && (
                 <button
                   onClick={handleCopyId}
                   className="flex items-center gap-1.5 rounded-full border border-border bg-surface-sunken px-3 py-1 text-xs text-text-muted transition hover:text-text"
@@ -554,6 +570,9 @@ export default function EventDetails() {
           <button
             key={t}
             onClick={() => setTab(t)}
+            onMouseEnter={() => warmTab(t)}
+            onFocus={() => warmTab(t)}
+            onTouchStart={() => warmTab(t)}
             className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${tab === t ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-primary"
               }`}
           >
@@ -599,7 +618,7 @@ export default function EventDetails() {
                   onFavourite={handleFavourite}
                   onDownload={handleDownload}
                   onBuy={handleBuy}
-                  onDelete={isOrganizer ? handleDeletePhoto : undefined}
+                  onDelete={canDeletePhoto(photo) ? handleDeletePhoto : undefined}
                   downloading={downloadingId === photo._id}
                   liked={likedIds.has(photo._id)}
                   favourited={favouritedIds.has(photo._id)}
@@ -617,7 +636,8 @@ export default function EventDetails() {
               onDownload={handleDownload}
               onLike={handleLike}
               onFavourite={handleFavourite}
-              onDelete={isOrganizer ? handleDeletePhoto : undefined}
+              onDelete={handleDeletePhoto}
+              canDelete={canDeletePhoto}
               downloadingId={downloadingId}
               likedIds={likedIds}
               favouritedIds={favouritedIds}
@@ -653,11 +673,27 @@ export default function EventDetails() {
         />
       )}
 
-      {tab === "Participants" && (
-        <ParticipantsPanel eventId={eventId} isOrganizer={isOrganizer} onChanged={refreshStats} />
+      {(tab === "Participants" || warmTabs.includes("Participants")) && (
+        <div hidden={tab !== "Participants"} className={tab === "Participants" ? "animate-fade-in" : ""}>
+          <ParticipantsPanel
+            eventId={eventId}
+            isOrganizer={isOrganizer}
+            isPrimaryOrganizer={isPrimaryOrganizer}
+            onChanged={refreshStats}
+            active={tab === "Participants"}
+          />
+        </div>
       )}
-      {tab === "Photographers" && (
-        <PhotographersPanel eventId={eventId} isOrganizer={isOrganizer} onChanged={refreshStats} />
+
+      {(tab === "Photographers" || warmTabs.includes("Photographers")) && (
+        <div hidden={tab !== "Photographers"} className={tab === "Photographers" ? "animate-fade-in" : ""}>
+          <PhotographersPanel
+            eventId={eventId}
+            isOrganizer={isOrganizer}
+            onChanged={refreshStats}
+            active={tab === "Photographers"}
+          />
+        </div>
       )}
       {showSettings && viewerAccess.isOrganizer && (
         <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>

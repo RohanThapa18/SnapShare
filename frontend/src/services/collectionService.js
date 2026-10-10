@@ -2,7 +2,7 @@ import api from "./api";
 
 /** The current user's persisted Find My Photos results for this event. */
 export const getMyPhotosCollection = (eventId) => api.get(`/events/${eventId}/my-photos`);
-
+export const clearMyPhotosCollection = (eventId) => api.delete(`/events/${eventId}/my-photos`);
 /**
  * Downloads every authorized matched photo as a ZIP. Fetched as a blob
  * (rather than a plain <a href>) because the endpoint requires the

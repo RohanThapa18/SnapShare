@@ -13,8 +13,8 @@ import { expireOverdueEvents } from "../utils/expireOverdueEvents.js";
 export const getMyDashboard = asyncHandler(async (req, res) => {
   await expireOverdueEvents();
   const userId = new mongoose.Types.ObjectId(req.user.id);
-
-  const organizedEvents = await Event.find({ organizerId: userId }).select("_id");
+  const organizerFilter = { $or: [{ organizerId: userId }, { coOrganizerIds: userId }] };
+  const organizedEvents = await Event.find(organizerFilter).select("_id");
   const organizedEventIds = organizedEvents.map((e) => e._id);
 
   const [
@@ -26,8 +26,8 @@ export const getMyDashboard = asyncHandler(async (req, res) => {
     myUploadStats,
     recentUploads,
   ] = await Promise.all([
-    Event.countDocuments({ organizerId: userId }),
-    Event.countDocuments({ organizerId: userId, status: EVENT_STATUS.ACTIVE }),
+    Event.countDocuments(organizerFilter),
+    Event.countDocuments({ ...organizerFilter, status: EVENT_STATUS.ACTIVE }),
     EventParticipant.countDocuments({ eventId: { $in: organizedEventIds } }),
     Photo.aggregate([
       { $match: { eventId: { $in: organizedEventIds } } },

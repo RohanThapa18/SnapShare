@@ -422,6 +422,7 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
                 onClick={() => {
                   setResults(null);
                   resetSelfies();
+                  collectionService.clearMyPhotosCollection(eventId).catch(() => { });
                 }}
                 className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary border border-border px-3 py-2 rounded-control transition"
               >

@@ -9,6 +9,7 @@ const router = Router({ mergeParams: true });
 router.use(requireAuth, requireEventParticipant);
 
 router.get("/", collectionController.getMyPhotosCollection);
+router.delete("/", collectionController.clearMyPhotosCollection);
 router.get("/download-all", collectionController.downloadMyPhotosZip);
 
 export default router;

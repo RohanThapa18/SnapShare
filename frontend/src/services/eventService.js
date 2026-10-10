@@ -90,3 +90,6 @@ export const updateEventCover = (id, file) => {
 };
 
 export const removeEventCover = (id) => api.delete(`/events/${id}/cover`);
+
+export const addCoOrganizer = (eventId, userId) => api.post(`/events/${eventId}/organizers/${userId}`);
+export const removeCoOrganizer = (eventId, userId) => api.delete(`/events/${eventId}/organizers/${userId}`);

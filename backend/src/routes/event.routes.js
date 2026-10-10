@@ -7,6 +7,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireActiveEvent } from "../middleware/eventStatus.js";
 import {
   requireEventOwner,
+  requireEventPrimaryOwner,
   requireEventParticipant,
 } from "../middleware/membership.js";
 import { resolveEventRef, resolveEventParam } from "../middleware/resolveEventRef.js";
@@ -85,7 +86,7 @@ router.put("/:id/cover", requireEventOwner, uploadCoverImage, eventController.up
 
 router.delete("/:id/cover", requireEventOwner, eventController.removeEventCover);
 
-router.delete("/:id", requireEventOwner, eventController.deleteEvent);
+router.delete("/:id", requireEventPrimaryOwner, eventController.deleteEvent);
 
 router.get("/:id/participants", requireEventParticipant, eventController.getParticipants);
 
@@ -94,6 +95,9 @@ router.delete(
   requireEventOwner,
   eventController.removeParticipant
 );
+
+router.post("/:id/organizers/:userId", requireEventOwner, eventController.addCoOrganizer);
+router.delete("/:id/organizers/:userId", requireEventPrimaryOwner, eventController.removeCoOrganizer);
 
 router.post(
   "/:id/join",
