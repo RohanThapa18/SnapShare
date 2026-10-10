@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react";
 import toast from "react-hot-toast";
 import * as eventService from "../services/eventService";
 
-export default function ParticipantsPanel({ eventId, isOrganizer }) {
+export default function ParticipantsPanel({ eventId, isOrganizer, onChanged }) {
   const [participants, setParticipants] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -19,11 +19,17 @@ export default function ParticipantsPanel({ eventId, isOrganizer }) {
   }, [eventId, search]);
 
   const handleRemove = async (userId) => {
+    // remove instantly, restore if the request fails
+    const snapshot = { participants, total };
+    setParticipants((prev) => prev.filter((p) => p.userId?._id !== userId));
+    setTotal((t) => Math.max(0, t - 1));
     try {
       await eventService.removeParticipant(eventId, userId);
       toast.success("Participant removed");
-      load();
+      onChanged?.();
     } catch (err) {
+      setParticipants(snapshot.participants);
+      setTotal(snapshot.total);
       toast.error(err.response?.data?.message || "Failed to remove participant");
     }
   };
@@ -50,18 +56,20 @@ export default function ParticipantsPanel({ eventId, isOrganizer }) {
               <p className="text-sm">{p.userId?.name}</p>
               {p.userId?.email && <p className="text-xs text-text-muted">{p.userId.email}</p>}
             </div>
-            <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
-              <X size={16} />
-            </button>
+            {isOrganizer && (
+              <button
+                onClick={() => handleRemove(p.userId?._id)}
+                className="text-text-muted hover:text-error"
+                aria-label="Remove participant"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         ))}
-
-        {isOrganizer && (
-          <button onClick={() => handleRemove(p.userId?._id)} className="text-text-muted hover:text-error">
-            <X size={16} />
-          </button>
+        {participants.length === 0 && (
+          <p className="text-text-muted text-sm py-6 text-center">No participants found.</p>
         )}
-        {participants.length === 0 && <p className="text-text-muted text-sm py-6 text-center">No participants found.</p>}
       </div>
     </div>
   );

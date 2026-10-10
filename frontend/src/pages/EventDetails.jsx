@@ -50,6 +50,8 @@ export default function EventDetails() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [stats, setStats] = useState(null);
+  const [photoPatches, setPhotoPatches] = useState({});
+  const [removedIds, setRemovedIds] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   // Organizer passcode reveal — never fetched until the organizer opens
   // Settings, decrypted server-side on demand (see event.controller.js).
@@ -79,10 +81,13 @@ export default function EventDetails() {
     loadEvent();
   }, [slug]);
 
+  const refreshStats = () => {
+    if (!viewerAccess.isOrganizer || !eventId) return;
+    eventService.getEventStats(eventId).then((res) => setStats(res.data.data)).catch(() => { });
+  };
+
   useEffect(() => {
-    if (viewerAccess.isOrganizer) {
-      eventService.getEventStats(eventId).then((res) => setStats(res.data.data)).catch(() => { });
-    }
+    refreshStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, viewerAccess.isOrganizer]);
 
@@ -153,24 +158,25 @@ export default function EventDetails() {
 
   const handleLike = async (photo) => {
     const isLiked = likedIds.has(photo._id);
-    // optimistic update — no reload
-    setLikedIds((prev) => {
-      const next = new Set(prev);
-      isLiked ? next.delete(photo._id) : next.add(photo._id);
-      return next;
-    });
-    setPhotos((prev) =>
-      prev.map((p) => (p._id === photo._id ? { ...p, likeCount: (p.likeCount ?? 0) + (isLiked ? -1 : 1) } : p))
-    );
+    const prevCount = photo.likeCount ?? 0;
+    const nextCount = Math.max(0, prevCount + (isLiked ? -1 : 1));
+
+    const apply = (liked, count) => {
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        liked ? next.add(photo._id) : next.delete(photo._id);
+        return next;
+      });
+      setPhotos((prev) => prev.map((p) => (p._id === photo._id ? { ...p, likeCount: count } : p)));
+      // lets the Find My Photos tab show the same count without a reload
+      setPhotoPatches((prev) => ({ ...prev, [photo._id]: { likeCount: count } }));
+    };
+
+    apply(!isLiked, nextCount);
     try {
       isLiked ? await photoService.unlikePhoto(photo._id) : await photoService.likePhoto(photo._id);
     } catch (err) {
-      // revert on failure
-      setLikedIds((prev) => {
-        const next = new Set(prev);
-        isLiked ? next.add(photo._id) : next.delete(photo._id);
-        return next;
-      });
+      apply(isLiked, prevCount);
       toast.error(err.response?.data?.message || "Couldn't update like");
     }
   };
@@ -241,6 +247,12 @@ export default function EventDetails() {
         try {
           await photoService.deletePhoto(photo._id);
           setPhotos((prev) => prev.filter((p) => p._id !== photo._id));
+          setRemovedIds((prev) => [...prev, photo._id]);
+          // keep the lightbox valid after the photo disappears
+          setLightboxIndex((i) =>
+            i === null ? null : photos.length <= 1 ? null : Math.min(i, photos.length - 2)
+          );
+          refreshStats();
           toast.success("Photo deleted");
         } catch (err) {
           toast.error(err.response?.data?.message || "Couldn't delete photo");
@@ -248,6 +260,7 @@ export default function EventDetails() {
       },
     });
   };
+
   const handleDelete = () => {
     setConfirmState({
       title: "Delete event permanently?",
@@ -341,6 +354,7 @@ export default function EventDetails() {
       const res = await photoService.syncPhotosWithCloudinary(eventId);
       toast.success(res.data.message);
       loadPhotos();
+      refreshStats()
     } catch (err) {
       toast.error(err.response?.data?.message || "Sync failed");
     } finally {
@@ -519,7 +533,10 @@ export default function EventDetails() {
           eventId={eventId}
           canUploadOfficial={viewerAccess.isPhotographer}
           canUploadCommunity={viewerAccess.isParticipant}
-          onUploaded={loadPhotos}
+          onUploaded={() => {
+            loadPhotos();
+            refreshStats();
+          }}
         />
       )}
 
@@ -532,12 +549,17 @@ export default function EventDetails() {
           onFavourite={handleFavourite}
           likedIds={likedIds}
           favouritedIds={favouritedIds}
+          photoPatches={photoPatches}
+          removedIds={removedIds}
         />
       )}
 
-      {tab === "Participants" && <ParticipantsPanel eventId={eventId} isOrganizer={isOrganizer} />}
-      {tab === "Photographers" && <PhotographersPanel eventId={eventId} isOrganizer={isOrganizer} />}
-
+      {tab === "Participants" && (
+        <ParticipantsPanel eventId={eventId} isOrganizer={isOrganizer} onChanged={refreshStats} />
+      )}
+      {tab === "Photographers" && (
+        <PhotographersPanel eventId={eventId} isOrganizer={isOrganizer} onChanged={refreshStats} />
+      )}
       {showSettings && viewerAccess.isOrganizer && (
         <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
           <div className="space-y-6">

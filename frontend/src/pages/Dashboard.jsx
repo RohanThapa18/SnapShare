@@ -78,6 +78,9 @@ export default function Dashboard() {
           <img
             src={event.coverImageUrl}
             alt=""
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
             className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
           />
         ) : (

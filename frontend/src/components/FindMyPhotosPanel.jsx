@@ -30,7 +30,7 @@ import { resizeImageFile } from "../utils/resizeImage";
  * already searched before) so they don't have to re-upload a selfie
  * every time they revisit the tab.
  */
-export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, onFavourite, likedIds, favouritedIds }) {
+export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, onFavourite, likedIds, favouritedIds, photoPatches, removedIds }) {
   const [selfies, setSelfies] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -70,6 +70,16 @@ export default function FindMyPhotosPanel({ eventId, onDownload, onBuy, onLike, 
     };
   }, [eventId]);
 
+  // keep results in sync with likes / deletions made elsewhere on the page
+  useEffect(() => {
+    setResults((prev) =>
+      prev
+        ? prev
+          .filter((p) => !removedIds?.includes(p._id))
+          .map((p) => (photoPatches?.[p._id] ? { ...p, ...photoPatches[p._id] } : p))
+        : prev
+    );
+  }, [photoPatches, removedIds]);
   const handleSelect = (file) => {
     if (selfies.length >= 3) return;
     setSelfies((prev) => [...prev, file]);
