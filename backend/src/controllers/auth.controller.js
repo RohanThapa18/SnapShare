@@ -4,6 +4,12 @@ import { User } from "../models/index.js";
 import { signToken } from "../services/tokenService.js";
 import { AppError } from "../utils/AppError.js";
 
+import {
+  uploadAvatarToCloudinary,
+  getAvatarUrl,
+  deleteCloudinaryAsset,
+} from "../services/cloudinaryService.js";
+
 const SALT_ROUNDS = 12;
 
 const cookieOptions = () => ({
@@ -79,6 +85,53 @@ export const updateMe = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({ success: true, message: "Profile updated", data: { user } });
+});
+
+export const updateAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new AppError("Please choose an image to upload", 400, "NO_FILE");
+  }
+
+  const user = await User.findById(req.user.id).select("+avatarPublicId");
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  const uploaded = await uploadAvatarToCloudinary(req.file.buffer, user._id.toString());
+  const oldPublicId = user.avatarPublicId;
+
+  try {
+    user.avatarUrl = getAvatarUrl(uploaded.public_id);
+    user.avatarPublicId = uploaded.public_id;
+    await user.save();
+  } catch (err) {
+    await deleteCloudinaryAsset(uploaded.public_id).catch(() => {});
+    throw err;
+  }
+
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+
+  res.status(200).json({
+    success: true,
+    message: "Profile photo updated",
+    data: { user },
+  });
+});
+
+export const removeAvatar = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).select("+avatarPublicId");
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  const oldPublicId = user.avatarPublicId;
+  user.avatarUrl = null;
+  user.avatarPublicId = null;
+  await user.save();
+
+  if (oldPublicId) await deleteCloudinaryAsset(oldPublicId).catch(() => {});
+
+  res.status(200).json({
+    success: true,
+    message: "Profile photo removed",
+    data: { user },
+  });
 });
 
 export const changePassword = asyncHandler(async (req, res) => {

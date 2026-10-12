@@ -93,10 +93,9 @@ export default function Navbar() {
                   px-4 py-2.5 rounded-xl
                   text-sm font-medium
                   transition-all duration-300
-                  ${
-                    isActive("/dashboard")
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
+                  ${isActive("/dashboard")
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
                   }
                 `}
               >
@@ -120,10 +119,9 @@ export default function Navbar() {
                   px-4 py-2.5 rounded-xl
                   text-sm font-medium
                   transition-all duration-300
-                  ${
-                    isActive("/liked")
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
+                  ${isActive("/liked")
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
                   }
                 `}
               >
@@ -147,10 +145,9 @@ export default function Navbar() {
                   px-4 py-2.5 rounded-xl
                   text-sm font-medium
                   transition-all duration-300
-                  ${
-                    isActive("/purchases")
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
+                  ${isActive("/purchases")
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
                   }
                 `}
               >
@@ -185,7 +182,7 @@ export default function Navbar() {
               >
                 <div
                   className="
-                    w-8 h-8 rounded-full
+                    w-8 h-8 rounded-full overflow-hidden
                     bg-primary/10
                     border border-primary/10
                     flex items-center justify-center
@@ -195,7 +192,11 @@ export default function Navbar() {
                     group-hover:scale-105
                   "
                 >
-                  <User size={15} />
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <User size={15} />
+                  )}
                 </div>
 
                 <span className="text-sm font-medium text-text max-w-[150px] truncate">
@@ -370,7 +371,11 @@ export default function Navbar() {
                   transition-all duration-200
                 "
               >
-                <User size={18} />
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" className="h-[22px] w-[22px] rounded-full object-cover" />
+                ) : (
+                  <User size={18} />
+                )}
                 {user.name}
               </Link>
 
