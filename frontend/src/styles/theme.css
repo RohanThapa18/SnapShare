@@ -1,71 +1,48 @@
 @theme {
   /* =========================================================
-     SNAPSHARE — PROFESSIONAL DESIGN SYSTEM
+     SNAPSHARE — DESIGN SYSTEM
      ========================================================= */
 
-  /* ---------- Typography ---------- */
-
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-display: "Fraunces", "Inter", ui-serif, Georgia, serif;
 
-
-  /* ---------- Brand ---------- */
-
+  /* Brand colors */
   --color-background: #f7f8fc;
-
   --color-primary: #26345f;
   --color-primary-hover: #1d284a;
-
   --color-secondary: #e9edf8;
   --color-secondary-hover: #dce3f3;
-
   --color-accent: #e59a7a;
   --color-accent-hover: #d98765;
-
   --color-error: #c65a5a;
   --color-error-hover: #aa4848;
-
   --color-success: #3b8a68;
   --color-success-hover: #2f7357;
 
-
-  /* ---------- Surfaces ---------- */
-
+  /* Surfaces */
   --color-surface: #ffffff;
   --color-surface-hover: #f9fafb;
   --color-surface-sunken: #f2f4f7;
-
   --color-border: #e4e7ec;
 
-
-  /* ---------- Text ---------- */
-
+  /* Text */
   --color-text: #172033;
   --color-text-muted: #667085;
-
   --color-on-accent: #172033;
 
-
-  /* ---------- Radius ---------- */
-
+  /* Radius */
   --radius-card: 1.25rem;
   --radius-control: 0.75rem;
 
-
-  /* ---------- Shadows ---------- */
-
-  --shadow-sm:
-    0 1px 2px rgba(16, 24, 40, 0.04);
-
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-card:
     0 4px 12px rgba(16, 24, 40, 0.04),
     0 12px 30px rgba(16, 24, 40, 0.06);
-
-  --shadow-elevated:
-    0 20px 50px rgba(16, 24, 40, 0.14);
+  --shadow-elevated: 0 20px 50px rgba(16, 24, 40, 0.14);
 }
-
 
 /* =========================================================
    GLOBAL
@@ -80,15 +57,9 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
-
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-
-/* =========================================================
-   LINKS / BUTTONS
-   ========================================================= */
 
 button,
 a {
@@ -109,21 +80,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
-
-/* =========================================================
-   FOCUS
-   ========================================================= */
-
 :focus-visible {
   outline: 3px solid rgba(229, 154, 122, 0.45);
   outline-offset: 3px;
 }
 
-
-/* =========================================================
-   SCROLLBAR
-   ========================================================= */
-
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
@@ -142,19 +104,13 @@ button:disabled {
   background: #aeb5c4;
 }
 
-
 /* =========================================================
-   ANIMATIONS
+   SHARED ANIMATIONS
    ========================================================= */
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slide-up {
@@ -162,7 +118,6 @@ button:disabled {
     opacity: 0;
     transform: translateY(12px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -174,7 +129,6 @@ button:disabled {
     opacity: 0;
     transform: scale(0.97) translateY(6px);
   }
-
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -182,13 +136,8 @@ button:disabled {
 }
 
 @keyframes shimmer {
-  from {
-    background-position: -200% 0;
-  }
-
-  to {
-    background-position: 200% 0;
-  }
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
 }
 
 .animate-fade-in {
@@ -203,11 +152,7 @@ button:disabled {
   animation: scale-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-
-/* =========================================================
-   SKELETON
-   ========================================================= */
-
+/* Skeleton loading */
 .skeleton {
   position: relative;
   overflow: hidden;
@@ -216,27 +161,19 @@ button:disabled {
 
 .skeleton::after {
   content: "";
-
   position: absolute;
   inset: 0;
-
   background: linear-gradient(
     90deg,
     transparent,
     rgba(255, 255, 255, 0.65),
     transparent
   );
-
   background-size: 200% 100%;
-
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-
-/* =========================================================
-   PHOTO MASONRY
-   ========================================================= */
-
+/* Photo masonry */
 .break-inside-avoid {
   break-inside: avoid;
 }
@@ -245,9 +182,727 @@ button:disabled {
   column-gap: 1rem;
 }
 
+/* =========================================================
+   SNAPSHARE — FLOWING AURORA BACKGROUND
+   ========================================================= */
+
+.landing-page-bg {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background: #f7f8fc;
+}
+
+/* Background layer */
+.landing-page-bg > .ambient-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Keep direct page content above the background */
+.landing-page-bg > section,
+.landing-page-bg > footer,
+.landing-page-bg > nav,
+.landing-page-bg > header {
+  position: relative;
+  z-index: 1;
+}
+
+/* Moving aurora lights */
+.landing-page-bg .ambient-orb {
+  position: absolute;
+  display: block;
+  width: min(78vw, 900px);
+  height: min(78vw, 900px);
+  border-radius: 50%;
+  filter: blur(85px);
+  opacity: 0.72;
+  will-change: transform;
+}
+
+/* Blue aurora */
+.landing-page-bg .ambient-orb-one {
+  top: -22%;
+  left: -25%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(105, 139, 255, 0.78) 0%,
+    rgba(133, 157, 255, 0.48) 32%,
+    rgba(175, 187, 255, 0.20) 56%,
+    transparent 72%
+  );
+  animation: aurora-blue-flow 11s ease-in-out infinite alternate;
+}
+
+/* Peach aurora */
+.landing-page-bg .ambient-orb-two {
+  top: -8%;
+  right: -28%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 164, 132, 0.70) 0%,
+    rgba(255, 190, 168, 0.42) 34%,
+    rgba(255, 215, 201, 0.18) 57%,
+    transparent 73%
+  );
+  animation: aurora-peach-flow 14s ease-in-out infinite alternate;
+}
+
+/* Violet aurora */
+.landing-page-bg .ambient-orb-three {
+  top: 28%;
+  left: 22%;
+  width: min(85vw, 1000px);
+  height: min(85vw, 1000px);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(163, 132, 255, 0.52) 0%,
+    rgba(182, 163, 255, 0.34) 35%,
+    rgba(201, 194, 255, 0.15) 58%,
+    transparent 74%
+  );
+  animation: aurora-violet-flow 17s ease-in-out infinite alternate;
+}
+
+/* Shifting color wash */
+.landing-page-bg .ambient-noise {
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(
+      ellipse at 18% 25%,
+      rgba(102, 151, 255, 0.26) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 78% 30%,
+      rgba(255, 171, 145, 0.25) 0%,
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 55% 78%,
+      rgba(174, 151, 255, 0.28) 0%,
+      transparent 44%
+    ),
+    radial-gradient(
+      ellipse at 40% 50%,
+      rgba(255, 255, 255, 0.42) 0%,
+      transparent 55%
+    );
+  background-size: 150% 150%;
+  animation: aurora-color-drift 13s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+/* Subtle background grid */
+.landing-page-bg .ambient-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      rgba(38, 52, 95, 0.045) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(38, 52, 95, 0.045) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+  opacity: 0.35;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgba(0, 0, 0, 0.7) 45%,
+    transparent 95%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgba(0, 0, 0, 0.7) 45%,
+    transparent 95%
+  );
+}
+
+/* Aurora motion */
+@keyframes aurora-blue-flow {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(0.88) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(15%, 13%, 0) scale(1.12) rotate(12deg);
+  }
+  100% {
+    transform: translate3d(7%, 24%, 0) scale(1.02) rotate(-8deg);
+  }
+}
+
+@keyframes aurora-peach-flow {
+  0% {
+    transform: translate3d(2%, -4%, 0) scale(0.92) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-16%, 15%, 0) scale(1.14) rotate(-12deg);
+  }
+  100% {
+    transform: translate3d(-9%, 28%, 0) scale(0.98) rotate(9deg);
+  }
+}
+
+@keyframes aurora-violet-flow {
+  0% {
+    transform: translate3d(-8%, 4%, 0) scale(0.86) rotate(-5deg);
+  }
+  50% {
+    transform: translate3d(12%, -12%, 0) scale(1.13) rotate(10deg);
+  }
+  100% {
+    transform: translate3d(3%, 12%, 0) scale(1.04) rotate(-6deg);
+  }
+}
+
+@keyframes aurora-color-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate3d(2%, 1%, 0) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-1%, 2%, 0) scale(1.02);
+    opacity: 0.78;
+  }
+}
 
 /* =========================================================
-   REDUCED MOTION
+   HERO PHOTO GALLERY
+   ========================================================= */
+
+.hero-photo-scene {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 520px;
+  height: 440px;
+  margin-inline: auto;
+  perspective: 1000px;
+}
+
+.hero-photo-glow {
+  position: absolute;
+  z-index: -1;
+  width: 70%;
+  height: 70%;
+  left: 15%;
+  top: 15%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(233, 237, 248, 0.95),
+    rgba(229, 154, 122, 0.12) 55%,
+    transparent 75%
+  );
+  filter: blur(24px);
+  animation: hero-glow-pulse 7s ease-in-out infinite;
+}
+
+.hero-photo {
+  position: absolute;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 22px;
+  background: #e9edf8;
+  box-shadow:
+    0 14px 35px rgba(38, 52, 95, 0.12),
+    0 35px 70px rgba(38, 52, 95, 0.12);
+  transform-origin: center;
+  will-change: transform;
+}
+
+.hero-photo-left {
+  z-index: 1;
+  width: 47%;
+  height: 65%;
+  top: 13%;
+  left: 2%;
+  transform: rotate(-10deg);
+  animation: hero-photo-left-float 7s ease-in-out infinite;
+}
+
+.hero-photo-right {
+  z-index: 2;
+  width: 47%;
+  height: 65%;
+  top: 11%;
+  right: 2%;
+  transform: rotate(9deg);
+  animation: hero-photo-right-float 8s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+.hero-photo-center {
+  z-index: 3;
+  width: 49%;
+  height: 73%;
+  top: 12%;
+  left: 25%;
+  animation: hero-photo-center-float 6s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.hero-photo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.hero-photo:hover .hero-photo-image {
+  transform: scale(1.07);
+}
+
+.hero-photo-label {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #26345f;
+  font-size: 10px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+}
+
+/* =========================================================
+   AI SCANNING OVERLAY
+   ========================================================= */
+
+.hero-scan-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+    180deg,
+    rgba(38, 52, 95, 0.02),
+    rgba(38, 52, 95, 0.12)
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.hero-scan-frame {
+  position: relative;
+  width: 62%;
+  height: 43%;
+  border-radius: 45%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(233, 237, 248, 0.06);
+  box-shadow: 0 0 0 100px rgba(38, 52, 95, 0.05);
+  overflow: hidden;
+}
+
+.scan-corner {
+  position: absolute;
+  z-index: 2;
+  width: 19px;
+  height: 19px;
+  border-color: #fff;
+  border-style: solid;
+  filter: drop-shadow(0 1px 4px rgba(38, 52, 95, 0.3));
+}
+
+.scan-tl {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 8px;
+}
+
+.scan-tr {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+  border-top-right-radius: 8px;
+}
+
+.scan-bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 8px;
+}
+
+.scan-br {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 8px;
+}
+
+.hero-scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #fff;
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 0 25px rgba(233, 237, 248, 0.9);
+  animation: hero-scan 3s ease-in-out infinite;
+}
+
+.hero-ai-status {
+  position: absolute;
+  z-index: 4;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #26345f;
+  font-size: 10px;
+  font-weight: 600;
+  box-shadow: 0 5px 18px rgba(38, 52, 95, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.hero-ai-status > svg {
+  margin-left: auto;
+  color: #3b8a68;
+}
+
+.hero-status-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #3b8a68;
+  box-shadow: 0 0 0 3px rgba(59, 138, 104, 0.12);
+  animation: hero-status-pulse 2s ease-in-out infinite;
+}
+
+/* =========================================================
+   FLOATING GALLERY BADGE
+   ========================================================= */
+
+.hero-gallery-badge {
+  position: absolute;
+  z-index: 5;
+  top: 5%;
+  right: -1%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 17px;
+  border: 1px solid rgba(228, 231, 236, 0.9);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 32px rgba(38, 52, 95, 0.12);
+  animation: hero-badge-float 5s ease-in-out infinite;
+  backdrop-filter: blur(14px);
+}
+
+.hero-gallery-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #e9edf8;
+  color: #26345f;
+}
+
+.hero-gallery-caption {
+  margin: 0 0 2px;
+  color: #667085;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.hero-gallery-count {
+  margin: 0;
+  color: #26345f;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-gallery-subtitle {
+  margin: 3px 0 0;
+  color: #667085;
+  font-size: 10px;
+}
+
+.hero-gallery-check {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #3b8a68;
+  color: #fff;
+}
+
+/* =========================================================
+   FLOATING DISCOVERY BADGE
+   ========================================================= */
+
+.hero-discovery-badge {
+  position: absolute;
+  z-index: 4;
+  bottom: 5%;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  border: 1px solid rgba(228, 231, 236, 0.9);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 32px rgba(38, 52, 95, 0.1);
+  animation: hero-badge-float 6s ease-in-out infinite;
+  animation-delay: -2s;
+  backdrop-filter: blur(14px);
+}
+
+.hero-discovery-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(229, 154, 122, 0.17);
+  color: #d98765;
+}
+
+.hero-discovery-badge p {
+  margin: 0;
+  color: #26345f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hero-discovery-badge div > span {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 10px;
+}
+
+/* =========================================================
+   HERO ANIMATION KEYFRAMES
+   ========================================================= */
+
+@keyframes hero-photo-left-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-10deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-7deg);
+  }
+}
+
+@keyframes hero-photo-right-float {
+  0%, 100% {
+    transform: translateY(0) rotate(9deg);
+  }
+  50% {
+    transform: translateY(-13px) rotate(6deg);
+  }
+}
+
+@keyframes hero-photo-center-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1deg);
+  }
+}
+
+@keyframes hero-badge-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hero-scan {
+  0%, 100% {
+    top: 4%;
+    opacity: 0.45;
+  }
+  50% {
+    top: 94%;
+    opacity: 1;
+  }
+}
+
+@keyframes hero-status-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(59, 138, 104, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 138, 104, 0.04);
+  }
+}
+
+@keyframes hero-glow-pulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes hero-scene-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-hero-scene-enter {
+  animation: hero-scene-enter 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* =========================================================
+   HOW IT WORKS — NAVY HOVER INDICATOR
+   ========================================================= */
+
+.landing-page-bg .step-card::after,
+.landing-page-bg .step-card:hover::after,
+.landing-page-bg .step-card:focus-within::after {
+  background-color: #26345f !important;
+}
+
+/* =========================================================
+   RESPONSIVE STYLES
+   ========================================================= */
+
+@media (max-width: 767px) {
+  .hero-photo-scene {
+    width: min(100%, 440px);
+    height: 365px;
+    margin-top: 10px;
+  }
+
+  .hero-photo {
+    border-width: 3px;
+    border-radius: 18px;
+  }
+
+  .hero-photo-left {
+    left: 4%;
+    width: 45%;
+    height: 62%;
+  }
+
+  .hero-photo-right {
+    right: 4%;
+    width: 45%;
+    height: 62%;
+  }
+
+  .hero-photo-center {
+    left: 26%;
+    width: 48%;
+    height: 70%;
+  }
+
+  .hero-gallery-badge {
+    right: 0;
+    top: 2%;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .hero-gallery-icon {
+    width: 31px;
+    height: 31px;
+  }
+
+  .hero-gallery-count {
+    font-size: 19px;
+  }
+
+  .hero-discovery-badge {
+    bottom: 1%;
+    left: 0;
+    padding: 10px 12px;
+  }
+
+  /* Mobile aurora tuning */
+  .landing-page-bg .ambient-orb {
+    width: 115vw;
+    height: 115vw;
+    filter: blur(65px);
+    opacity: 0.60;
+  }
+
+  .landing-page-bg .ambient-orb-three {
+    width: 125vw;
+    height: 125vw;
+  }
+
+  .landing-page-bg .ambient-grid {
+    background-size: 36px 36px;
+    opacity: 0.25;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero-photo-scene {
+    height: 320px;
+  }
+
+  .hero-gallery-badge {
+    transform: scale(0.88);
+    transform-origin: top right;
+  }
+
+  .hero-discovery-badge {
+    transform: scale(0.9);
+    transform-origin: bottom left;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY — REDUCED MOTION
    ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
@@ -259,61 +914,95 @@ button:disabled {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-}
-/* =========================================================
-   Landing Page Animations
-   ========================================================= */
 
-@keyframes snapshare-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-9deg);
-  }
-
-  50% {
-    transform: translateY(-8px) rotate(-8deg);
-  }
-}
-
-@keyframes snapshare-float-delayed {
-  0%,
-  100% {
-    transform: translateY(0) rotate(7deg);
-  }
-
-  50% {
-    transform: translateY(-10px) rotate(8deg);
+  .hero-photo,
+  .hero-photo-glow,
+  .hero-gallery-badge,
+  .hero-discovery-badge,
+  .hero-scan-line,
+  .hero-status-dot,
+  .animate-hero-scene-enter,
+  .ambient-orb,
+  .ambient-noise {
+    animation: none !important;
+    will-change: auto;
   }
 }
+/* =========================================
+   SNAPSHARE — Replace orange accents with navy blue
+   ========================================= */
 
-@keyframes snapshare-card-enter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 18px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
+:root {
+  --color-accent: #26345f;
+  --color-accent-hover: #1d284a;
 }
 
-.animate-float-soft {
-  animation: snapshare-float 5s ease-in-out infinite;
+/* Step cards: active/hover underline */
+.step-card::after,
+.step-card::before,
+.step-card:hover::after,
+.step-card:hover::before,
+.step-card.active::after,
+.step-card.active::before {
+  background-color: #26345f !important;
+  border-color: #26345f !important;
 }
 
-.animate-float-delayed {
-  animation: snapshare-float-delayed 6s ease-in-out 0.8s infinite;
+/* Step card text */
+.step-card,
+.step-card h1,
+.step-card h2,
+.step-card h3,
+.step-card p,
+.step-card span,
+.step-card a {
+  --color-accent: #26345f;
 }
 
-.animate-card-enter {
-  animation: snapshare-card-enter 0.7s ease-out both;
+.step-card:hover,
+.step-card:hover h1,
+.step-card:hover h2,
+.step-card:hover h3,
+.step-card:hover a {
+  color: #26345f;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-float-soft,
-  .animate-float-delayed,
-  .animate-card-enter {
-    animation: none;
-  }
+/* Common accent text utilities */
+.text-accent,
+.text-orange-400,
+.text-orange-500,
+.text-orange-600,
+.text-orange-700 {
+  color: #26345f !important;
+}
+
+/* Common accent backgrounds */
+.bg-accent,
+.bg-orange-400,
+.bg-orange-500,
+.bg-orange-600 {
+  background-color: #26345f !important;
+}
+
+/* Accent borders and underline indicators */
+.border-accent,
+.border-orange-400,
+.border-orange-500,
+.border-orange-600,
+.decoration-orange-400,
+.decoration-orange-500,
+.decoration-orange-600 {
+  border-color: #26345f !important;
+  text-decoration-color: #26345f !important;
+}
+
+/* Links and buttons using the accent color */
+a:hover,
+button:hover {
+  --color-accent: #26345f;
+}
+
+/* Preserve the navy theme for interactive focus indicators */
+:focus-visible {
+  outline-color: #26345f;
 }
