@@ -9,6 +9,7 @@ import {
   changePasswordSchema,
   updateProfileSchema,
 } from "../validators/auth.validators.js";
+import { uploadAvatar } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -27,6 +28,8 @@ router.post("/logout", requireAuth, authController.logout);
 
 router.get("/me", requireAuth, authController.getMe);
 router.put("/me", requireAuth, validate(updateProfileSchema), authController.updateMe);
+router.put("/me/avatar", requireAuth, uploadAvatar, authController.updateAvatar);
+router.delete("/me/avatar", requireAuth, authController.removeAvatar);
 router.put(
   "/change-password",
   requireAuth,

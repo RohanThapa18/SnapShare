@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings, Heart, Download, CalendarDays, MapPin, Crown } from "lucide-react";
+import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings, Heart, Download, CalendarDays, MapPin, Crown, Upload as UploadIcon, ScanFace, LayoutGrid, Columns3, LayoutDashboard } from "lucide-react";
 import * as eventService from "../services/eventService";
 import * as photoService from "../services/photoService";
 import PhotoCard from "../components/PhotoCard";
@@ -25,6 +25,18 @@ import CoverImageCard from "../components/CoverImageCard";
 import { useAuth } from "../context/AuthContext";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
+const TAB_ICONS = { Gallery: Images, Upload: UploadIcon, "Find My Photos": ScanFace, Participants: Users, Photographers: CameraIcon };
+const LAYOUTS = [
+  { key: "masonry", label: "Masonry", icon: Columns3 },
+  { key: "grid", label: "Grid", icon: LayoutGrid },
+  { key: "mosaic", label: "Mosaic", icon: LayoutDashboard },
+];
+const LAYOUT_CLASS = {
+  masonry: "columns-2 gap-4 sm:columns-3 lg:columns-4",
+  grid: "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4",
+  mosaic: "grid grid-flow-dense auto-rows-[150px] grid-cols-2 gap-3 sm:auto-rows-[190px] sm:grid-cols-3 sm:gap-4 lg:grid-cols-4",
+};
+const mosaicSpan = (i) => (i % 7 === 0 ? "col-span-2 row-span-2" : i % 7 === 3 ? "row-span-2" : "");
 import { nowLocalInput } from "../utils/datetime";
 export default function EventDetails() {
   const { slug } = useParams();
@@ -64,6 +76,18 @@ export default function EventDetails() {
   const [regenerating, setRegenerating] = useState(false);
   const [passcodeCopied, setPasscodeCopied] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
+    const [layout, setLayout] = useState(() => {
+    try {
+      const v = localStorage.getItem("snapshare:galleryLayout");
+      return LAYOUTS.some((l) => l.key === v) ? v : "masonry";
+    } catch {
+      return "masonry";
+    }
+  });
+  const changeLayout = (key) => {
+    setLayout(key);
+    try { localStorage.setItem("snapshare:galleryLayout", key); } catch { /* ignore */ }
+  };
   const isOrganizer = viewerAccess.isOrganizer;
   const isPrimaryOrganizer = viewerAccess.isPrimaryOrganizer;
   // organizers can delete any photo; everyone else only their own uploads
@@ -405,7 +429,15 @@ export default function EventDetails() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="relative min-h-screen">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#eef0fb] via-[#f6f7fc] to-[#fbf7f5]" />
+        <div className="absolute -left-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-indigo-300/30 blur-3xl" />
+        <div className="absolute -right-24 top-40 h-[24rem] w-[24rem] rounded-full bg-rose-200/40 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-[26rem] w-[26rem] rounded-full bg-sky-200/30 blur-3xl" />
+      </div>
+
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <BackButton />
 
       {/* ---------- Hero ---------- */}
@@ -516,87 +548,179 @@ export default function EventDetails() {
         )}
       </div>
 
-      {/* ---------- Stats ---------- */}
+      {/* ---------- Stats (organizer only) ---------- */}
       {isOrganizer && stats && (
-        <div className="mb-6 grid grid-cols-2 gap-3 animate-fade-in sm:grid-cols-4">
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Users size={18} />
-            </div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">Participants</p>
-            <p className="text-2xl font-semibold text-primary">{stats.participantCount}</p>
-          </div>
+        <div className="mb-8 grid animate-fade-in grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {[
+            {
+              label: "Participants",
+              value: stats.participantCount,
+              icon: Users,
+              grad: "from-indigo-500 to-indigo-700",
+              glow: "shadow-indigo-500/30",
+            },
+            {
+              label: "Photographers",
+              value: stats.photographerCount,
+              icon: CameraIcon,
+              grad: "from-sky-500 to-cyan-600",
+              glow: "shadow-sky-500/30",
+            },
+            {
+              label: "Photos",
+              value: stats.totalPhotos,
+              icon: ImageIcon,
+              grad: "from-violet-500 to-fuchsia-600",
+              glow: "shadow-violet-500/30",
+              sub: `${stats.officialPhotos} official · ${stats.communityPhotos} community`,
+            },
+            {
+              label: "Likes",
+              value: stats.totalLikes,
+              icon: Heart,
+              grad: "from-rose-500 to-orange-500",
+              glow: "shadow-rose-500/30",
+              fill: true,
+              sub: `${stats.totalDownloads} download${stats.totalDownloads === 1 ? "" : "s"}`,
+              subIcon: Download,
+            },
+          ].map(({ label, value, icon: Icon, grad, glow, sub, subIcon: SubIcon, fill }) => (
+            <div
+              key={label}
+              className="group relative overflow-hidden rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card sm:p-5"
+            >
+              {/* big faded icon in the corner */}
+              <Icon
+                aria-hidden="true"
+                size={84}
+                strokeWidth={1.25}
+                className="absolute -bottom-4 -right-3 text-slate-900/[0.04] transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6"
+              />
 
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <CameraIcon size={18} />
-            </div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">Photographers</p>
-            <p className="text-2xl font-semibold text-primary">{stats.photographerCount}</p>
-          </div>
+              <div className="relative flex items-center gap-3">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg ${grad} ${glow}`}
+                >
+                  <Icon size={20} className={fill ? "fill-white" : ""} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-text-muted">{label}</p>
+                  <p
+                    key={value}
+                    className="animate-scale-in text-2xl font-semibold leading-tight text-slate-900"
+                  >
+                    {value}
+                  </p>
+                </div>
+              </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ImageIcon size={18} />
+              {sub && (
+                <p className="relative mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2.5 text-[11px] font-medium text-text-muted">
+                  {SubIcon && <SubIcon size={11} />}
+                  {sub}
+                </p>
+              )}
             </div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">Photos</p>
-            <p className="text-2xl font-semibold text-primary">{stats.totalPhotos}</p>
-            <p className="mt-0.5 text-[11px] text-text-muted">
-              {stats.officialPhotos} official · {stats.communityPhotos} community
-            </p>
-          </div>
-
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:shadow-card">
-            <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-accent/15" aria-hidden="true" />
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 text-accent">
-              <Heart size={18} className="fill-accent" />
-            </div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">Engagement</p>
-            <div className="flex items-end gap-1.5">
-              <p key={stats.totalLikes} className="animate-scale-in text-2xl font-semibold leading-tight text-primary">
-                {stats.totalLikes}
-              </p>
-              <span className="pb-0.5 text-sm text-text-muted">likes</span>
-            </div>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-muted">
-              <Download size={11} /> {stats.totalDownloads} downloads
-            </p>
-          </div>
+          ))}
         </div>
       )}
 
-      <div className="flex gap-2 mb-6 border-b border-border overflow-x-auto">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            onMouseEnter={() => warmTab(t)}
-            onFocus={() => warmTab(t)}
-            onTouchStart={() => warmTab(t)}
-            className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${tab === t ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-primary"
-              }`}
-          >
-            {t}
-          </button>
-        ))}
+      {/* ---------- Tabs (sticky) ---------- */}
+      <div className="sticky top-[72px] z-30 -mx-4 mb-6 bg-[#f4f5fb]/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div
+          role="tablist"
+          className="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-white/90 p-1.5 shadow-sm ring-1 ring-slate-200/70"
+        >
+          {TABS.map((t) => {
+            const TabIcon = TAB_ICONS[t];
+            const selected = tab === t;
+            return (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setTab(t)}
+                onMouseEnter={() => warmTab(t)}
+                onFocus={() => warmTab(t)}
+                onTouchStart={() => warmTab(t)}
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${
+                  selected
+                    ? "bg-[#26345f] text-white shadow-md"
+                    : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                }`}
+              >
+                <TabIcon size={15} />
+                {t}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {tab === "Gallery" && (
         <div>
-          <div className="flex gap-2 mb-4">
-            {["OFFICIAL", "COMMUNITY"].map((a) => (
-              <button
-                key={a}
-                onClick={() => setAlbum(a)}
-                className={`px-3 py-1 rounded-full text-xs transition ${album === a ? "bg-primary text-white" : "bg-surface border border-border text-text-muted hover:text-primary"
+          {/* album + layout toolbar */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+                {["OFFICIAL", "COMMUNITY"].map((a) => {
+                  const AlbumIcon = a === "OFFICIAL" ? CameraIcon : Users;
+                  return (
+                    <button
+                      key={a}
+                      onClick={() => setAlbum(a)}
+                      className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
+                        album === a
+                          ? "bg-[#26345f] text-white shadow"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                      }`}
+                    >
+                      <AlbumIcon size={14} />
+                      {a === "OFFICIAL" ? "Official" : "Community"}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {!photosLoading && (
+                <span className="text-sm font-medium text-text-muted">
+                  {photos.length} photo{photos.length === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+
+            <div className="flex gap-1 rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+              {LAYOUTS.map(({ key, label, icon: LayoutIcon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  title={`${label} layout`}
+                  aria-label={`${label} layout`}
+                  aria-pressed={layout === key}
+                  onClick={() => changeLayout(key)}
+                  className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all ${
+                    layout === key
+                      ? "bg-[#26345f] text-white shadow"
+                      : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-700"
                   }`}
-              >
-                {a}
-              </button>
-            ))}
+                >
+                  <LayoutIcon size={15} />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+
           {photosLoading ? (
-            <PhotoGridSkeleton count={8} />
+            layout === "masonry" ? (
+              <PhotoGridSkeleton count={8} />
+            ) : (
+              <div className={LAYOUT_CLASS.grid}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="skeleton aspect-[4/5] rounded-2xl" aria-hidden="true" />
+                ))}
+              </div>
+            )
           ) : photos.length === 0 ? (
             <EmptyState
               icon={Images}
@@ -608,11 +732,13 @@ export default function EventDetails() {
               }
             />
           ) : (
-            <div className="columns-2 sm:columns-3 md:columns-4 photo-masonry">
+            <div className={`${LAYOUT_CLASS[layout]} animate-fade-in`}>
               {photos.map((photo, i) => (
                 <PhotoCard
                   key={photo._id}
                   photo={photo}
+                  variant={layout === "masonry" ? "masonry" : layout === "grid" ? "tile" : "fill"}
+                  className={layout === "mosaic" ? mosaicSpan(i) : ""}
                   onOpen={() => setLightboxIndex(i)}
                   onLike={handleLike}
                   onFavourite={handleFavourite}
@@ -622,11 +748,11 @@ export default function EventDetails() {
                   downloading={downloadingId === photo._id}
                   liked={likedIds.has(photo._id)}
                   favourited={favouritedIds.has(photo._id)}
-
                 />
               ))}
             </div>
           )}
+
           {lightboxIndex !== null && (
             <PhotoLightbox
               photos={photos}
@@ -643,7 +769,6 @@ export default function EventDetails() {
               favouritedIds={favouritedIds}
             />
           )}
-
         </div>
       )}
 
@@ -882,6 +1007,7 @@ export default function EventDetails() {
           onCancel={() => setConfirmState(null)}
         />
       )}
+    </div>
     </div>
   );
 }

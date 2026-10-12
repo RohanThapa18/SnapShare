@@ -37,6 +37,17 @@ const coverUploader = multer({
   },
 });
 
+const avatarUploader = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+    files: 1,
+  },
+});
+
+export const uploadAvatar = avatarUploader.single("avatar");
+
 export const uploadCoverImage = coverUploader.single("coverImage");
 
 export const uploadSingle = uploader.single("photo");
