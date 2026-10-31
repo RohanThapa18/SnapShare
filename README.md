@@ -1,7 +1,5 @@
 # SnapShare
 
-[![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
-
 **Event photo sharing with face-matching and pay-per-photo.** An organizer creates an event, photographers upload the official shots, guests add their own, and everyone finds *their* photos by uploading a selfie, with no scrolling through hundreds of pictures.
 
 > Screenshots: add yours under `docs/screenshots/` and link them here (event gallery, Find My Photos, slideshow, sales page).
