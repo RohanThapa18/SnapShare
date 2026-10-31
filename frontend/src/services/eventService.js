@@ -93,3 +93,6 @@ export const removeEventCover = (id) => api.delete(`/events/${id}/cover`);
 
 export const addCoOrganizer = (eventId, userId) => api.post(`/events/${eventId}/organizers/${userId}`);
 export const removeCoOrganizer = (eventId, userId) => api.delete(`/events/${eventId}/organizers/${userId}`);
+// Organizer: every photo in the event as one ZIP
+export const exportEvent = (id) =>
+  api.get(`/events/${id}/export`, { responseType: "blob", timeout: 0 });

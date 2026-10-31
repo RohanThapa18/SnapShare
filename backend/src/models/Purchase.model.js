@@ -19,7 +19,8 @@ const purchaseSchema = new mongoose.Schema(
 
     paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", required: true },
     amountPaid: { type: Number, required: true },
-
+    platformFee: { type: Number, default: 0 }, // paise kept by the platform
+    payoutId: { type: mongoose.Schema.Types.ObjectId, ref: "Payout", default: null, index: true }, // null = not paid out yet
     purchasedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }

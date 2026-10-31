@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
 import { User } from "../models/index.js";
 import { signToken } from "../services/tokenService.js";
 import { AppError } from "../utils/AppError.js";
-
+import { deleteAccount } from "../services/accountService.js";
 import {
   uploadAvatarToCloudinary,
   getAvatarUrl,
@@ -152,4 +152,16 @@ export const changePassword = asyncHandler(async (req, res) => {
   res.cookie("token", token, cookieOptions());
 
   res.status(200).json({ success: true, message: "Password updated", data: { token } });
+});
+export const deleteMe = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).select("+passwordHash");
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+  const match = await user.comparePassword(req.body.password);
+  if (!match) throw new AppError("Password is incorrect", 401, "INVALID_PASSWORD");
+
+  await deleteAccount(req.user.id);
+
+  res.clearCookie("token", cookieOptions());
+  res.status(200).json({ success: true, message: "Your account has been deleted" });
 });

@@ -5,6 +5,8 @@ import api from "../services/api";
 import * as eventService from "../services/eventService";
 import { useAuth } from "../context/AuthContext";
 import BackButton from "../components/BackButton";
+import PayoutSettings from "../components/PayoutSettings";
+import DeleteAccountCard from "../components/DeleteAccountCard";
 import {
   User,
   Mail,
@@ -100,7 +102,7 @@ export default function Profile() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (user?.name) setName(user.name);
   }, [user?.name]);
 
@@ -254,7 +256,7 @@ export default function Profile() {
         <div className="grid items-start gap-6 lg:grid-cols-[320px_1fr]">
           {/* ================= LEFT: identity card ================= */}
           <aside className={`${card} overflow-hidden lg:sticky lg:top-24`}>
-                       <div className={`relative h-28 overflow-hidden bg-gradient-to-br ${theme.cover}`}>
+            <div className={`relative h-28 overflow-hidden bg-gradient-to-br ${theme.cover}`}>
               {showAvatarImg && (
                 <img
                   src={user.avatarUrl}
@@ -268,7 +270,7 @@ export default function Profile() {
             </div>
 
             <div className="px-6 pb-6">
-                            {/* avatar (z-10 keeps it above the cover) */}
+              {/* avatar (z-10 keeps it above the cover) */}
               <div className="relative z-10 -mt-12 h-24 w-24">
                 <div
                   className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br ${theme.grad} text-3xl font-semibold text-white shadow-xl ring-4 ring-white`}
@@ -416,8 +418,8 @@ export default function Profile() {
                   aria-selected={tab === key}
                   onClick={() => setTab(key)}
                   className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${tab === key
-                      ? "bg-[#26345f] text-white shadow-md"
-                      : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                    ? "bg-[#26345f] text-white shadow-md"
+                    : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
                     }`}
                 >
                   <Icon size={15} /> {label}
@@ -512,132 +514,136 @@ export default function Profile() {
 
             {/* ---------- SECURITY ---------- */}
             {tab === "security" && (
-              <form onSubmit={handlePasswordSave} className={`${card} animate-fade-in p-6 md:p-8`}>
-                <div className="mb-7 flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-lg shadow-rose-500/30">
-                    <Lock size={25} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-text">Account security</h2>
-                    <p className="mt-0.5 text-sm text-text-muted">Keep your account protected with a strong password.</p>
-                  </div>
-                </div>
-
-                {/* current */}
-                <div className="mb-5">
-                  <label className="mb-2 block text-sm font-medium text-text">Current password</label>
-                  <div className="relative">
-                    <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-                    <input
-                      type={showPw.current ? "text" : "password"}
-                      required
-                      autoComplete="current-password"
-                      className={`${inputClass} pr-12`}
-                      value={passwords.currentPassword}
-                      onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
-                      placeholder="Enter current password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw((s) => ({ ...s, current: !s.current }))}
-                      aria-label={showPw.current ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:text-indigo-600"
-                    >
-                      {showPw.current ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* new */}
-                <div className="mb-5">
-                  <label className="mb-2 block text-sm font-medium text-text">New password</label>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-                    <input
-                      type={showPw.next ? "text" : "password"}
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                      className={`${inputClass} pr-12`}
-                      value={passwords.newPassword}
-                      onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                      placeholder="Enter new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw((s) => ({ ...s, next: !s.next }))}
-                      aria-label={showPw.next ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:text-indigo-600"
-                    >
-                      {showPw.next ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-
-                  {/* strength meter */}
-                  <div className="mt-3">
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4].map((i) => (
-                        <span
-                          key={i}
-                          className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${score >= i ? strength.bar : "bg-slate-200"
-                            }`}
-                        />
-                      ))}
+              <div className="space-y-6">
+                <form onSubmit={handlePasswordSave} className={`${card} animate-fade-in p-6 md:p-8`}>
+                  <div className="mb-7 flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-lg shadow-rose-500/30">
+                      <Lock size={25} />
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="text-xs text-text-muted">Use at least 8 characters.</p>
-                      {passwords.newPassword && (
-                        <p className={`text-xs font-semibold ${strength.text}`}>{strength.label}</p>
-                      )}
+                    <div>
+                      <h2 className="text-xl font-semibold text-text">Account security</h2>
+                      <p className="mt-0.5 text-sm text-text-muted">Keep your account protected with a strong password.</p>
                     </div>
-                    <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
-                      {checks.map((c) => (
-                        <li
-                          key={c.label}
-                          className={`flex items-center gap-2 text-xs transition-colors ${c.ok ? "text-emerald-600" : "text-slate-400"
-                            }`}
-                        >
+                  </div>
+
+                  {/* current */}
+                  <div className="mb-5">
+                    <label className="mb-2 block text-sm font-medium text-text">Current password</label>
+                    <div className="relative">
+                      <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type={showPw.current ? "text" : "password"}
+                        required
+                        autoComplete="current-password"
+                        className={`${inputClass} pr-12`}
+                        value={passwords.currentPassword}
+                        onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+                        placeholder="Enter current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((s) => ({ ...s, current: !s.current }))}
+                        aria-label={showPw.current ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:text-indigo-600"
+                      >
+                        {showPw.current ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* new */}
+                  <div className="mb-5">
+                    <label className="mb-2 block text-sm font-medium text-text">New password</label>
+                    <div className="relative">
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type={showPw.next ? "text" : "password"}
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        className={`${inputClass} pr-12`}
+                        value={passwords.newPassword}
+                        onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                        placeholder="Enter new password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((s) => ({ ...s, next: !s.next }))}
+                        aria-label={showPw.next ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:text-indigo-600"
+                      >
+                        {showPw.next ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+
+                    {/* strength meter */}
+                    <div className="mt-3">
+                      <div className="flex gap-1.5">
+                        {[1, 2, 3, 4].map((i) => (
                           <span
-                            className={`flex h-4 w-4 items-center justify-center rounded-full ${c.ok ? "bg-emerald-100" : "bg-slate-100"
+                            key={i}
+                            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${score >= i ? strength.bar : "bg-slate-200"
+                              }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-xs text-text-muted">Use at least 8 characters.</p>
+                        {passwords.newPassword && (
+                          <p className={`text-xs font-semibold ${strength.text}`}>{strength.label}</p>
+                        )}
+                      </div>
+                      <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {checks.map((c) => (
+                          <li
+                            key={c.label}
+                            className={`flex items-center gap-2 text-xs transition-colors ${c.ok ? "text-emerald-600" : "text-slate-400"
                               }`}
                           >
-                            {c.ok && <Check size={10} strokeWidth={3} />}
-                          </span>
-                          {c.label}
-                        </li>
-                      ))}
-                    </ul>
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center rounded-full ${c.ok ? "bg-emerald-100" : "bg-slate-100"
+                                }`}
+                            >
+                              {c.ok && <Check size={10} strokeWidth={3} />}
+                            </span>
+                            {c.label}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                </div>
 
-                {/* confirm */}
-                <div className="mb-7">
-                  <label className="mb-2 block text-sm font-medium text-text">Confirm new password</label>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-                    <input
-                      type={showPw.next ? "text" : "password"}
-                      required
-                      autoComplete="new-password"
-                      className={`${inputClass} ${mismatch ? "!border-rose-300 focus:!ring-rose-500/10" : ""}`}
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                      placeholder="Re-enter new password"
-                    />
+                  {/* confirm */}
+                  <div className="mb-7">
+                    <label className="mb-2 block text-sm font-medium text-text">Confirm new password</label>
+                    <div className="relative">
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type={showPw.next ? "text" : "password"}
+                        required
+                        autoComplete="new-password"
+                        className={`${inputClass} ${mismatch ? "!border-rose-300 focus:!ring-rose-500/10" : ""}`}
+                        value={passwords.confirm}
+                        onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                        placeholder="Re-enter new password"
+                      />
+                    </div>
+                    {mismatch && <p className="mt-2 text-xs font-medium text-rose-600">Passwords don't match yet.</p>}
                   </div>
-                  {mismatch && <p className="mt-2 text-xs font-medium text-rose-600">Passwords don't match yet.</p>}
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={savingPassword || !canSavePassword}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#2f3f73] to-[#1d284a] px-5 py-3 font-medium text-white shadow-[0_8px_20px_rgba(38,52,95,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(38,52,95,0.36)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:translate-y-0"
-                >
-                  <Lock size={17} />
-                  {savingPassword ? "Updating..." : "Update password"}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={savingPassword || !canSavePassword}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#2f3f73] to-[#1d284a] px-5 py-3 font-medium text-white shadow-[0_8px_20px_rgba(38,52,95,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(38,52,95,0.36)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:translate-y-0"
+                  >
+                    <Lock size={17} />
+                    {savingPassword ? "Updating..." : "Update password"}
+                  </button>
+                </form>
+                <PayoutSettings />
+              </div>
             )}
+            {tab === "security" && <DeleteAccountCard />}
           </div>
         </div>
       </div>

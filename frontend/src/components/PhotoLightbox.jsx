@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Download, Heart, Bookmark, Maximize, Loader2, Trash2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Heart, Bookmark, Maximize, Loader2, Trash2, Flag } from "lucide-react";
 /**
  * Full-screen photo viewer ("lightbox"). Renders on top of everything
  * else in the app instead of navigating away from the gallery.
@@ -27,6 +27,8 @@ export default function PhotoLightbox({
   onLike,
   onDelete,
   canDelete,
+  onReport,
+  canReport,
   onFavourite,
   likedIds,
   favouritedIds,
@@ -209,6 +211,15 @@ export default function PhotoLightbox({
                 {isDownloading ? "Downloading…" : "Download"}
               </button>
             )}
+          {onReport && (!canReport || canReport(photo)) && (
+            <button
+              onClick={() => onReport(photo)}
+              className="flex items-center gap-1.5 text-white/90 hover:text-amber-300 transition text-sm"
+              aria-label="Report photo"
+            >
+              <Flag size={18} />
+            </button>
+          )}
           {onDelete && (!canDelete || canDelete(photo)) && (
             <button
               onClick={() => onDelete(photo)}

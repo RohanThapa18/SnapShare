@@ -63,6 +63,7 @@ const eventSchema = new mongoose.Schema(
     },
 
     expiryDate: { type: Date, required: true, index: true },
+    expiryWarnedFor: { type: Date, default: null }, // which expiry date we already emailed organizers about
     status: {
       type: String,
       enum: Object.values(EVENT_STATUS),

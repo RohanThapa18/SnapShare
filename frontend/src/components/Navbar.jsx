@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { LogOut, User, Menu, X, LayoutDashboard, Heart, ShoppingBag } from "lucide-react";
+import { LogOut, User, Menu, X, LayoutDashboard, Heart, ShoppingBag, Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
@@ -161,7 +161,16 @@ export default function Navbar() {
                   <span className="absolute bottom-1 left-1/2 w-0 h-0.5 bg-primary rounded-full transition-all duration-300 group-hover:w-8 -translate-x-1/2" />
                 )}
               </Link>
-
+              <Link
+                to="/sales"
+                className={`group relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${isActive("/sales")
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-text-muted hover:text-primary hover:bg-secondary/30 hover:-translate-y-0.5"
+                  }`}
+              >
+                <Wallet size={16} className="transition-transform duration-300 group-hover:scale-110" />
+                <span>Sales</span>
+              </Link>
 
               {/* ==================== USER ==================== */}
               <Link
@@ -357,7 +366,14 @@ export default function Navbar() {
                 <ShoppingBag size={18} />
                 Purchases
               </Link>
-
+              <Link
+                to="/sales"
+                onClick={closeMenu}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-text-muted hover:text-primary hover:bg-secondary/30 transition-all duration-200"
+              >
+                <Wallet size={18} />
+                Sales
+              </Link>
               <Link
                 to="/profile"
                 onClick={closeMenu}

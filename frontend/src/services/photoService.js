@@ -31,5 +31,5 @@ export const findMyPhotos = (eventId, formData) =>
   api.post(`/events/${eventId}/find-my-photos`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-
-  
+  export const countNewPhotos = (eventId, params) =>
+  api.get(`/events/${eventId}/photos/new-count`, { params });  

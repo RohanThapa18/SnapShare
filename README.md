@@ -1,482 +1,235 @@
 # SnapShare
 
-AI-powered event photo-sharing platform with face-recognition-based photo discovery ("Find My Photos"), built as a full-stack capstone project.
+[![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 
-## Project Structure
+**Event photo sharing with face-matching and pay-per-photo.** An organizer creates an event, photographers upload the official shots, guests add their own, and everyone finds *their* photos by uploading a selfie, with no scrolling through hundreds of pictures.
 
-```text
-snapshare/
-├── backend/              # Express API (Node.js, MongoDB, BullMQ, Cloudinary, Razorpay)
-├── frontend/             # React + Vite + Tailwind
-├── ai-service/            # Python + InsightFace face-recognition microservice
-├── backend.Dockerfile     # Backend Docker image
-├── frontend.Dockerfile    # Frontend Docker image
-├── docker-compose.yml     # Full local development stack
-└── README.md
+> Screenshots: add yours under `docs/screenshots/` and link them here (event gallery, Find My Photos, slideshow, sales page).
+
+## Features
+
+**For guests (participants)**
+- Join an event with its ID + passcode, or by scanning a QR code
+- **Find My Photos:** upload a selfie and get every photo you appear in, with a match-confidence badge. Your selfie and its face data are never stored
+- Like, favourite, download, and download all your matches as a ZIP
+- Buy paid photos (watermarked previews until purchased); see everything you bought under **Purchases**
+- **Report** a photo that shouldn't be there
+
+**For photographers**
+- Join an event by code/QR (or be added by email) and upload to the Official album
+- Price individual photos; see **who bought what** and what you're owed on the **Sales** page
+- Add a UPI ID in Profile to get paid
+
+**For organizers**
+- Create events with cover image, expiry date, participant and photographer passcodes + QR codes
+- Co-organizers, participant/photographer management (emails are masked)
+- Event stats, extend the event, sync with Cloudinary
+- **Reports tab:** review photos participants flagged, then remove or keep them
+- **Export all photos** as one ZIP (Official/ and Community/ folders)
+- Email warning 48 hours before the event closes (optional, needs SMTP)
+
+**Live and big-screen**
+- **Live slideshow** (`/events/:slug/slideshow`): fullscreen auto-advancing wall for a projector or TV. New uploads join the queue automatically
+- **"N new photos" banner** in the gallery: no refresh needed to see what others upload
+
+**Account and safety**
+- **Delete my account** (Profile → Security): removes personal data, deletes your unsold uploads, keeps anything others have already bought
+- Rate limiting on auth, payments, reports, exports and Find My Photos
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser["React + Vite frontend"] -->|REST + cookie auth| API["Express API"]
+  API --> DB[("MongoDB Atlas")]
+  API --> Redis[("Redis")]
+  API -->|upload / delete / URLs| Cloud["Cloudinary"]
+  API -->|create order / verify| Razorpay["Razorpay"]
+  Razorpay -->|signed webhook| API
+  API -->|selfie + photos| AI["Python AI service<br/>InsightFace"]
+  Redis --> Workers["BullMQ workers<br/>AI processing · event expiry · Cloudinary sync"]
+  Workers --> AI
+  Workers --> DB
+  Workers -.->|expiry warnings| SMTP["SMTP (optional)"]
 ```
 
-## What's implemented
+| Part | Tech |
+|---|---|
+| Frontend | React, Vite, Tailwind v4, React Router |
+| API | Node.js, Express 5, Mongoose, Zod validation |
+| Jobs | BullMQ on Redis (photo AI processing, event expiry sweep every 15 min, Cloudinary reconciliation) |
+| AI | Python + InsightFace (`buffalo_l`), cosine-similarity matching |
+| Storage | Cloudinary (images), MongoDB Atlas (data) |
+| Payments | Razorpay Checkout + signed webhook |
 
-- **Auth**: JWT + bcrypt, protected routes, profile/password management. **No fixed account role** — anyone can create events, join others, or become a photographer, all from one account (Google-Classroom-style: "Create" or "Join", not a role picker at signup)
+## How face matching works
 
-- **Per-event access model**: a user's relationship to any given event — organizer, photographer, or participant — is resolved per event from `EventParticipant`/`EventPhotographer`/`Event.organizerId`, never from a global account field. The same account can organize one event and just be a participant in another.
+1. When a photo is uploaded, a background job sends it to the AI service, which detects every face and returns one embedding (a vector of numbers) per face. These are stored against the photo, scoped to the event.
+2. When a guest runs **Find My Photos**, their selfie goes to the AI service, is turned into an embedding, compared against that event's stored embeddings, and **thrown away**. Matches above `FACE_MATCH_THRESHOLD` are returned.
+3. The guest's matches are saved as a list of photo IDs, so they can come back without re-uploading a selfie.
 
-- **Events**: create/edit/delete, bcrypt-hashed passcodes (shown once, never persisted in plaintext), **two separate opaque QR tokens per event** — one for joining as a participant, one for joining as a photographer — participant management, event expiry (auto + lazy self-correction), organizer stats
+**Privacy rules** built into the code: embeddings are `select: false` and never serialised into any API response; every query is scoped by `eventId`; the user must have joined the event first; selfies are never persisted.
 
-- **Photographer assignment — two paths**: (1) organizer adds someone by email directly, or (2) organizer shares a separate photographer QR/link and anyone with it can self-assign as a photographer for that event. Both grant event-scoped upload access only — never access to other events.
+## How payments work
 
-- **Photo system**: Multer + Sharp processing (EXIF-stripping, compression, resizing) → Cloudinary → async AI processing via BullMQ, so uploads never block on face detection
-
-- **Albums**: Official (photographer-only) and Community (participant-only), enforced server-side against the viewer's actual per-event relationship, not a global role
-
-- **Find My Photos**: selfie → transient embedding (never stored) → cosine similarity search scoped strictly to the joined event, configurable `FACE_MATCH_THRESHOLD`, no raw embeddings ever leave the backend
-
-- **Likes / Favourites / Downloads**: separate collections with unique compound indexes, no bloated arrays on Photo docs
-
-- **Payments**: Razorpay order creation (server-computed amounts only), signature verification, Purchase entitlement records that remain valid after event expiry, earnings as a read-time aggregation over purchases where the user was the photographer (no wallet/payout system)
-
-- **Dashboard**: a single unified endpoint/page reflecting whichever relationships a user actually has — organizing stats, photographing stats, and participating count — rather than separate role-gated dashboards
-
-- **Tests**: Vitest + Supertest + mongodb-memory-server — auth, per-event ownership (including a test proving the same account can organize one event and just participate in another), photographer self-join via token, face-embedding privacy guarantees
-
-- **Deployment configs**: `render.yaml` (backend + AI service + Redis), `vercel.json` (frontend), AI service `Dockerfile`, local `docker-compose.yml`
-
-## What's intentionally NOT implemented (per approved scope)
-
-- Organizer subscriptions / storage billing
-- Photographer wallets or payout/withdrawal systems
-- Chat, comments, social following
-- Forgot-password flow (marked optional/future in the spec)
-
-## Local Setup
-
-### Prerequisites
-
-- Docker Desktop
-- Docker Compose
-- A MongoDB Atlas cluster (free tier is fine)
-- A Cloudinary account (free tier is fine)
-- A Razorpay test account (for payment testing)
-
-Node.js and Python do not need to be installed locally to run the Dockerized application.
-
-### 1. Environment Variables
-
-Before starting the containers, configure the environment files used by the services.
-
-#### Backend
-
-Create:
-
-```text
-backend/.env
+```mermaid
+sequenceDiagram
+  participant B as Buyer
+  participant S as SnapShare API
+  participant R as Razorpay
+  participant P as Photographer
+  B->>S: create-order (photo id)
+  S->>S: price read from DB, never from the client
+  S->>R: create order
+  S-->>B: order id
+  B->>R: pays in Razorpay popup
+  R-->>B: payment id + signature
+  B->>S: verify
+  S->>R: fetch payment (captured? amount matches?)
+  S-->>B: photo unlocked
+  R->>S: webhook (backup if the browser closed early)
+  Note over S,P: Later: admin pays the photographer's UPI ID,<br/>then marks the payout as paid
 ```
 
-Configure:
+- **Money flow:** buyers pay SnapShare's Razorpay account. Photographers add a **UPI ID**, and the admin pays them out manually from `/admin/payouts` (a UPI deep link opens the payment on a phone), then records the transaction ID.
+- **Why manual:** Razorpay Route (automatic split payouts) needs approval and bank/KYC details per photographer. See *Limitations*.
+- **Safety checks:** HMAC signature verification, amount/order re-check with Razorpay, idempotent unlocking (verify and webhook can race safely), a per-item price snapshot taken at order time, and a signed webhook.
+- **Platform fee:** `PLATFORM_FEE_PERCENT` (default 0).
 
-- `MONGO_URI` — your shared MongoDB Atlas connection string
-- `JWT_SECRET` — any long random string
-- `CLOUDINARY_CLOUD_NAME` — from your Cloudinary dashboard
-- `CLOUDINARY_API_KEY` — from your Cloudinary dashboard
-- `CLOUDINARY_API_SECRET` — from your Cloudinary dashboard
-- `RAZORPAY_KEY_ID` — from your Razorpay test dashboard
-- `RAZORPAY_KEY_SECRET` — from your Razorpay test dashboard
-- `AI_SERVICE_SHARED_SECRET` — random shared secret matching the AI service configuration
-- `FACE_MATCH_THRESHOLD` — start around `0.5`, tune against your own test photos
+## Quick start with Docker
 
-The following values are configured automatically by `docker-compose.yml`:
+Needs Docker with Compose. Node and Python do not need to be installed.
 
-```text
-REDIS_URL=redis://redis:6379
-AI_SERVICE_URL=http://ai-service:8000
-FRONTEND_URL=http://localhost:5173
-```
+### 1. Environment files
 
-Do not replace `redis` or `ai-service` with `localhost` inside the backend container. Docker Compose resolves these service names through the internal Docker network.
+Create `backend/.env` (see `backend/.env.example` for every variable):
 
-#### AI Service
+| Variable | Purpose |
+|---|---|
+| `MONGO_URI` | MongoDB Atlas connection string |
+| `JWT_SECRET` | any long random string |
+| `PASSCODE_ENCRYPTION_KEY` | 64 hex chars; lets organizers view passcodes again. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` | Cloudinary dashboard |
+| `RAZORPAY_KEY_ID` / `_KEY_SECRET` | Razorpay **test-mode** keys |
+| `RAZORPAY_WEBHOOK_SECRET` | the secret you set on the webhook (below) |
+| `ADMIN_EMAILS` | comma-separated emails allowed to open `/admin/payouts` |
+| `PLATFORM_FEE_PERCENT` | % kept per sale (default `0`) |
+| `AI_SERVICE_SHARED_SECRET` | random string, must match the AI service |
+| `FACE_MATCH_THRESHOLD` | start at `0.5` (see tuning below) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | *optional*, enable expiry-warning emails (`cd backend && npm install nodemailer`) |
+| `MAX_EXPORT_PHOTOS` | optional cap on one event export (default `400`) |
 
-Create:
+`docker-compose.yml` sets `REDIS_URL`, `AI_SERVICE_URL` and `FRONTEND_URL` for you. Don't change `redis` / `ai-service` to `localhost` inside the containers.
 
-```text
-ai-service/.env
-```
+Create `ai-service/.env` containing the same `AI_SERVICE_SHARED_SECRET`.
 
-Configure the internal shared secret so that it matches:
-
-```text
-AI_SERVICE_SHARED_SECRET
-```
-
-from the backend configuration.
-
-#### Frontend
-
-The frontend API URL is configured directly by Docker Compose:
-
-```text
-VITE_API_URL=http://localhost:5000/api
-```
-
-No separate frontend `.env` file is required for the standard Docker Compose setup unless you need additional frontend-specific variables.
-
-### 2. Start the Application with Docker
-
-From the project root:
+### 2. Run it
 
 ```bash
-docker compose up --build
+docker compose up --build        # add -d to run in the background
 ```
 
-This starts the complete SnapShare stack:
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:5000 (health: `/api/health`) |
+| AI service | http://localhost:8000 |
 
-```text
-redis
-ai-service
-backend
-frontend
-```
+Useful commands: `docker compose logs -f backend`, `docker compose restart backend`, `docker compose down` (add `-v` to also drop the Redis and InsightFace model volumes; the model re-downloads next start).
 
-To start the containers in the background:
+### 3. Razorpay webhook (needed for payments to unlock reliably)
+
+Razorpay must be able to reach your backend, so locally use a tunnel (e.g. `ngrok http 5000`).
+
+1. Razorpay Dashboard (Test Mode) → Settings → Webhooks → **Add**
+2. URL: `https://<your-tunnel-or-domain>/api/payments/webhook`
+3. Secret: any random string; put the same value in `RAZORPAY_WEBHOOK_SECRET`
+4. Events: `payment.captured` and `order.paid`
+5. Test card: `5267 3181 8797 5449` (any future expiry and CVV), or Netbanking → Success
+
+## Roles
+
+There is no role picker at signup. A role belongs to an *event*, not an account:
+
+- **Create Event** → you're that event's organizer
+- **Join Event** → ID + passcode, or scan the participant QR (`/join/:eventId/:joinToken`)
+- **Join as Photographer** → ID + photographer code, or the photographer QR (`/join-photographer/:eventId/:token`); organizers can also add a photographer by email
+
+The same account can organize one event, photograph a second and just attend a third. Admin (payouts page) is the one global permission, set via `ADMIN_EMAILS`.
+
+## Tests and CI
 
 ```bash
-docker compose up --build -d
+cd backend && npm test          # Vitest + Supertest + mongodb-memory-server
+cd frontend && npm run lint && npm run build
 ```
 
-Check the running containers:
+`mongodb-memory-server` downloads a real MongoDB binary on first run, so it needs normal internet access. GitHub Actions (`.github/workflows/ci.yml`) runs the backend tests, frontend lint + build and an AI-service syntax check on every push and pull request.
 
-```bash
-docker compose ps
-```
-
-### 3. Access the Application
-
-Once all containers are running:
-
-- **Frontend** → `http://localhost:5173`
-- **Backend API** → `http://localhost:5000`
-- **Backend health check** → `http://localhost:5000/api/health`
-- **AI service** → `http://localhost:8000`
-- **Redis** → `localhost:6379`
-- **Database** → MongoDB Atlas
-
-Open:
-
-```text
-http://localhost:5173
-```
-
-in your browser to use SnapShare.
-
-### 4. Docker Service Management
-
-View logs for all services:
-
-```bash
-docker compose logs -f
-```
-
-View backend logs:
-
-```bash
-docker compose logs -f backend
-```
-
-View frontend logs:
-
-```bash
-docker compose logs -f frontend
-```
-
-View AI service logs:
-
-```bash
-docker compose logs -f ai-service
-```
-
-View Redis logs:
-
-```bash
-docker compose logs -f redis
-```
-
-Restart a specific service:
-
-```bash
-docker compose restart backend
-```
-
-Restart the complete stack:
-
-```bash
-docker compose restart
-```
-
-Stop the application:
-
-```bash
-docker compose down
-```
-
-Stop the application and remove Docker volumes:
-
-```bash
-docker compose down -v
-```
-
-> `docker compose down -v` removes the local `redis_data` and `insightface_models` volumes. The next startup may need to download the InsightFace model again.
-
-### 5. Docker Compose Services
-
-The local Docker environment consists of four services.
-
-#### Redis
-
-```text
-redis:7-alpine
-```
-
-Used by BullMQ for asynchronous photo/AI processing.
-
-Persistent Redis data is stored in:
-
-```text
-redis_data
-```
-
-#### AI Service
-
-Built from:
-
-```text
-./ai-service
-```
-
-The service runs InsightFace for face detection and face embedding generation.
-
-The InsightFace model cache is persisted using:
-
-```text
-insightface_models
-```
-
-The service is available locally at:
-
-```text
-http://localhost:8000
-```
-
-#### Backend
-
-Built from:
-
-```text
-./backend
-```
-
-using:
-
-```text
-backend.Dockerfile
-```
-
-The backend runs on:
-
-```text
-http://localhost:5000
-```
-
-Inside Docker, the backend communicates with:
-
-```text
-Redis      → redis://redis:6379
-AI Service → http://ai-service:8000
-```
-
-The backend connects to the shared MongoDB Atlas database using `MONGO_URI` from:
-
-```text
-backend/.env
-```
-
-#### Frontend
-
-Built from:
-
-```text
-./frontend
-```
-
-using:
-
-```text
-frontend.Dockerfile
-```
-
-The frontend runs on:
-
-```text
-http://localhost:5173
-```
-
-The browser communicates with the backend through:
-
-```text
-http://localhost:5000/api
-```
-
-### 6. Running a Specific Service
-
-You can also start individual services when debugging.
-
-Start Redis:
-
-```bash
-docker compose up redis
-```
-
-Start the AI service:
-
-```bash
-docker compose up ai-service
-```
-
-Start the backend:
-
-```bash
-docker compose up backend
-```
-
-Start the frontend:
-
-```bash
-docker compose up frontend
-```
-
-For normal development, it is recommended to start the complete stack:
-
-```bash
-docker compose up --build
-```
-
-## Latest round of changes
-
-- **Navigation**: back button on every inner page (event details, profile, purchases, create event)
-
-- **Leave event**: available to participants and photographers (not organizers, who delete instead); removes both relationship types so a photographer who leaves also drops their participant access
-
-- **Delete event**: organizer-only, with a confirmation prompt, in the event's Settings tab (Danger Zone)
-
-- **Participant/photographer privacy**: emails are masked server-side (`jo***@gmail.com`) in every listing an organizer sees — never sent as full addresses over the API
-
-- **Photo grid**: switched from a forced square crop to a masonry (CSS columns) layout showing full images at their natural aspect ratio, just resized — fixed both the frontend grid and the backend's thumbnail-generation transform, which was force-cropping to a square via Cloudinary
-
-- **Real downloads**: download URLs now carry Cloudinary's `fl_attachment` flag so the browser saves the file directly instead of opening it in a new tab
-
-- **Event sharing**: Event ID and passcode are now clearly displayed (with copy buttons) right after creation, along with the actual QR code — not just described in text
-
-- **QR scanning**: Join Event and Join as Photographer now have a real "Scan QR" mode using the device camera (`html5-qrcode`), not just text mentioning a QR option with no way to use it
-
-- **Responsive layout**: mobile hamburger nav, masonry grids that adapt column count by breakpoint, forms that scale down cleanly on small screens
-
-- **Extend event duration**: organizer can push an event's expiry date forward from Settings; pushing it into the future automatically re-activates an already-EXPIRED event
-
-- **Cloudinary reconciliation**: fixes photos becoming permanently stuck/broken if deleted directly in the Cloudinary dashboard instead of through the app — an organizer-triggered "Sync with Cloudinary" button plus an automatic background sweep every 6 hours both detect and remove orphaned records
-
-- **Theme stylesheet**: `frontend/src/styles/theme.css` is a single, heavily-commented file controlling every color and font across the whole app — see below
-
-## Customizing fonts and colors
-
-Edit:
-
-```text
-frontend/src/styles/theme.css
-```
-
-Every brand color (background, primary, accent, success, error, surface, border, text) and the app's font are defined there as CSS variables under `@theme`, and every component references them via Tailwind classes like `bg-primary` or `text-accent` — so changing a value in this one file updates the whole app.
-
-To use a different Google Font, update both the `--font-sans` variable in this file and the font `<link>` tag in:
-
-```text
-frontend/index.html
-```
-
-## Account and Event Roles
-
-There's no role picker at signup. Instead, from the Dashboard (Google-Classroom style):
-
-- **Create Event** → you become that event's organizer
-
-- **Join Event** → enter the Event ID + passcode the organizer shared, or scan their participant QR code (links to `/join/:eventId/:joinToken`, auto-joins on load)
-
-- **Join as Photographer** → enter the Event ID + a separate photographer code the organizer shared, or scan their photographer QR code (links to `/join-photographer/:eventId/:photographerToken`)
-
-An organizer can also skip the QR entirely and add a photographer directly by email from the event's Photographers tab — the invitee just needs an existing SnapShare account, no special "photographer" account type required.
-
-The same account can organize one event, photograph a friend's event, and just be a participant in a third — there's nothing tying an account to one fixed role.
-
-### 4. Tests
-
-```bash
-docker compose exec backend npm test
-```
-
-The test suite uses:
-
-```text
-Vitest
-Supertest
-mongodb-memory-server
-```
-
-`mongodb-memory-server` downloads a real MongoDB binary on first run, so the test environment requires normal internet access.
-
-If you prefer to run the backend tests outside Docker, the backend's normal Node.js development environment can still be used.
+Current backend coverage: auth, event RBAC and joining, passcode reveal, and face-embedding privacy. Payments, reports, account deletion and exports don't have automated tests yet (see Roadmap).
 
 ## Tuning FACE_MATCH_THRESHOLD
 
-The spec intentionally does not hardcode a final similarity threshold. To tune it:
+1. Upload test photos with known people in them
+2. Run Find My Photos with selfies of the same people
+3. Start at `0.5`. Raise it for fewer false positives (may miss real matches), lower it to catch more (may add false ones)
+4. ArcFace embeddings usually separate well between `0.4` and `0.6` cosine similarity, but it depends on your photo quality, angles and lighting
 
-1. Upload a set of test event photos with known people in them.
+## Customizing fonts and colors
 
-2. Run Find My Photos with selfies of those same people.
+Everything lives in `frontend/src/styles/theme.css` as CSS variables under `@theme`, referenced via Tailwind classes such as `bg-primary`. To change the font, update `--font-sans` there and the Google Fonts `<link>` in `frontend/index.html`.
 
-3. Start at `0.5`, and adjust up (fewer false positives, may miss some real matches) or down (catches more matches, may include false positives) based on results.
+## Demo script (5 minutes)
 
-4. ArcFace embeddings (what InsightFace's `buffalo_l` produces) typically separate well in the `0.4`–`0.6` cosine similarity range, but this varies with photo quality/angle/lighting in your actual dataset — there's no universal correct number.
+1. **Organizer** creates an event; show the passcode and QR in Settings
+2. **Photographer** (second browser/profile) joins by QR, uploads photos, prices one
+3. **Guest** joins, opens **Find My Photos** with a selfie → matches appear with confidence badges
+4. Guest buys the paid photo (Razorpay test card) → it unlocks; show **Purchases**
+5. Photographer opens **Sales** → sees the buyer and the amount owed
+6. Admin opens `/admin/payouts` → marks the photographer as paid
+7. Organizer opens the **Slideshow** on a second screen, then uploads a photo as the guest → it appears automatically
+8. Guest **reports** a photo → organizer reviews it in the **Reports** tab
 
 ## Deployment
 
 - **Frontend** → Vercel (`vercel.json` included, SPA rewrites configured)
+- **Backend + AI service + Redis** → Render (`backend/render.yaml` Blueprint)
+- **Database** → MongoDB Atlas · **Images** → Cloudinary · **Payments** → Razorpay (switch to live keys when ready; create a separate live-mode webhook with its own secret)
 
-- **Backend + AI service + Redis** → Render (`backend/render.yaml` Blueprint included — import it directly in the Render dashboard)
+Set every `sync: false` variable in the Render dashboard (Mongo URI, Cloudinary secret, Razorpay keys, webhook secret, admin emails, frontend URL, AI secret). Never commit credentials.
 
-- **Database** → MongoDB Atlas (external, not part of the Docker Compose stack)
+## Security notes
 
-- **Images** → Cloudinary (external)
+- Passwords: bcrypt, 12 salt rounds; a password change signs out all older sessions
+- Event passcodes: bcrypt-hashed for verifying joins, plus an encrypted copy so organizers can view them again
+- Auth: JWT in an httpOnly cookie (Bearer also accepted), re-verified against the database on every request
+- Payments: signature verified server-side, payment re-checked with Razorpay, prices never trusted from the client, webhook signature checked over the raw body
+- Face data: see *How face matching works*
+- Participant/photographer emails are masked for organizers; payout UPI IDs are never returned except to their owner and the admin
+- Rate limits: tighter on `/auth`, `/payments`, reports, exports and `/find-my-photos` than the global default
 
-- **Payments** → Razorpay (external; switch from test to live keys when ready)
+## Limitations
 
-Set all `sync: false` environment variables in the Render dashboard manually — these are the credentials that must never be committed to the repo (Mongo URI, Cloudinary secret, Razorpay secret, frontend URL, AI shared secret).
+- **Payouts are manual.** The platform holds buyers' money until the admin pays photographers. That means the operator is responsible for paying on time, and refunds/chargebacks after a payout come out of the operator's pocket. Automatic split payouts via Razorpay Route are the natural next step once the account is approved.
+- No refund flow yet; no GST/TDS handling. Check local rules before using real money.
+- Event export is capped (`MAX_EXPORT_PHOTOS`) and streams through the API server, which is fine for a few hundred photos.
+- Gallery "live" updates use light polling (every 15 s), not WebSockets.
+- Deleting an account is blocked while the user owns events or has unpaid earnings.
 
-## Git Workflow
+## Roadmap
 
-- `main` — stable, deployable
+Forgot-password and email verification · automated tests for payments, reports and exports · bulk photo pricing · organizer analytics charts · notifications when a photo sells · refunds · Razorpay Route payouts · optional "People" view grouping photos by person (with explicit consent).
 
-- `develop` — integration branch
+## Project layout
 
-- `feature/*` — one branch per feature area
+```text
+backend/    Express API (routes, controllers, services, models, BullMQ jobs, tests)
+frontend/   React app (pages, components, services, hooks, theme)
+ai-service/ Python InsightFace service
+docker-compose.yml, backend.Dockerfile, frontend.Dockerfile
+.github/workflows/ci.yml
+```
 
-## Security Notes
+## Git workflow
 
-- Passwords: bcrypt, 12 salt rounds
-
-- Event passcodes: bcrypt-hashed, plaintext shown exactly once at creation
-
-- JWT: httpOnly cookie + Bearer token support, role embedded but re-verified server-side on every request (never trusted from the frontend alone)
-
-- Payments: signature verified server-side via HMAC-SHA256 against Razorpay's secret — frontend success callbacks are never trusted alone
-
-- Face embeddings: `select: false` at the schema level, stripped again in `toJSON`, every query mandatorily scoped by `eventId`, selfies never persisted
-
-- Rate limiting: tighter limits on `/auth`, `/payments`, and `/find-my-photos` than the global default
+`main` is stable and deployable · `develop` is the integration branch · `feature/*` is one branch per feature.

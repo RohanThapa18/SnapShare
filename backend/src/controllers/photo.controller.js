@@ -349,5 +349,20 @@ export const syncEventPhotosWithCloudinary = asyncHandler(async (req, res) => {
     data: { checked: photos.length, removed: orphaned.length },
   });
 });
+export const countNewPhotos = asyncHandler(async (req, res) => {
+  const since = new Date(req.query.since);
+  if (Number.isNaN(since.getTime())) {
+    throw new AppError("since must be a valid date", 400, "INVALID_SINCE");
+  }
 
+  const filter = {
+    eventId: req.params.id,
+    createdAt: { $gt: since },
+    uploaderId: { $ne: req.user.id },
+  };
+  if (req.query.album) filter.album = req.query.album;
+
+  const count = await Photo.countDocuments(filter);
+  res.status(200).json({ success: true, data: { count } });
+});
 

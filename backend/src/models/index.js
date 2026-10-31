@@ -10,3 +10,5 @@ export { default as Download } from "./Download.model.js";
 export { default as Payment } from "./Payment.model.js";
 export { default as Purchase } from "./Purchase.model.js";
 export { default as MyPhotosCollection } from "./MyPhotosCollection.model.js";
+export { default as Payout } from "./Payout.model.js";
+export { default as Report } from "./Report.model.js";

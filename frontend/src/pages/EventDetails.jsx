@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings, Heart, Download, CalendarDays, MapPin, Crown, Upload as UploadIcon, ScanFace, LayoutGrid, Columns3, LayoutDashboard } from "lucide-react";
+import { Flag, Presentation, Copy, Check, LogOut, Trash2, RefreshCw, CalendarClock, Eye, EyeOff, KeyRound, Images, Users, Camera as CameraIcon, ImageIcon, Settings, Heart, Download, CalendarDays, MapPin, Crown, Upload as UploadIcon, ScanFace, LayoutGrid, Columns3, LayoutDashboard } from "lucide-react";
 import * as eventService from "../services/eventService";
 import * as photoService from "../services/photoService";
 import PhotoCard from "../components/PhotoCard";
@@ -15,7 +15,8 @@ import BackButton from "../components/BackButton";
 import EmptyState from "../components/EmptyState";
 import { PhotoGridSkeleton } from "../components/Skeleton";
 import { triggerDownload, triggerBlobDownload, filenameFromContentDisposition } from "../utils/download";
-import * as paymentService from "../services/paymentService";
+import { runPurchase } from "../utils/purchaseFlow";
+import PaymentStatusModal from "../components/PaymentStatusModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Modal from "../components/Modal";
 import PasscodeCard from "../components/PasscodeCard";
@@ -23,9 +24,15 @@ import { formatEventCode } from "../utils/eventCode";
 import EventIdCard from "../components/EventIdCard";
 import CoverImageCard from "../components/CoverImageCard";
 import { useAuth } from "../context/AuthContext";
+import NewPhotosBanner from "../components/NewPhotosBanner";
+import ExpiryBanner from "../components/ExpiryBanner";
+import ExportCard from "../components/ExportCard";
+import ReportPhotoModal from "../components/ReportPhotoModal";
+import ReportsPanel from "../components/ReportsPanel";
+import * as reportService from "../services/reportService";
 
 const TABS = ["Gallery", "Upload", "Find My Photos", "Participants", "Photographers"];
-const TAB_ICONS = { Gallery: Images, Upload: UploadIcon, "Find My Photos": ScanFace, Participants: Users, Photographers: CameraIcon };
+const TAB_ICONS = { Gallery: Images, Upload: UploadIcon, "Find My Photos": ScanFace, Participants: Users, Photographers: CameraIcon, Reports: Flag };
 const LAYOUTS = [
   { key: "masonry", label: "Masonry", icon: Columns3 },
   { key: "grid", label: "Grid", icon: LayoutGrid },
@@ -76,7 +83,7 @@ export default function EventDetails() {
   const [regenerating, setRegenerating] = useState(false);
   const [passcodeCopied, setPasscodeCopied] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
-    const [layout, setLayout] = useState(() => {
+  const [layout, setLayout] = useState(() => {
     try {
       const v = localStorage.getItem("snapshare:galleryLayout");
       return LAYOUTS.some((l) => l.key === v) ? v : "masonry";
@@ -93,6 +100,15 @@ export default function EventDetails() {
   // organizers can delete any photo; everyone else only their own uploads
   const canDeletePhoto = (photo) => isOrganizer || String(photo.uploaderId) === String(user?._id);
   const [confirmState, setConfirmState] = useState(null);
+  const [reportingPhoto, setReportingPhoto] = useState(null);
+  const [openReports, setOpenReports] = useState(0);
+  useEffect(() => {
+    if (!isOrganizer || !eventId) return;
+    reportService
+      .listReports(eventId)
+      .then((res) => setOpenReports(res.data.data.reports.length))
+      .catch(() => { });
+  }, [eventId, isOrganizer]);
   const loadEvent = () =>
     eventService.getEventBySlug(slug).then((res) => {
       setEvent(res.data.data.event);
@@ -160,21 +176,24 @@ export default function EventDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSettings, isOrganizer]);
 
+  const [purchaseFlow, setPurchaseFlow] = useState(null); // { photo, stage, error }
+
   const handleBuy = async (photo) => {
+    setPurchaseFlow({ photo, stage: "creating", error: null });
     try {
-      const res = await paymentService.createOrder({
-        eventId: eventId,
-        purchaseType: "PHOTO",
-        photoId: photo._id,
+      await runPurchase({
+        payload: { eventId, purchaseType: "PHOTO", photoId: photo._id },
+        user,
+        description: "Photo purchase",
+        onStage: (stage) => setPurchaseFlow((f) => (f ? { ...f, stage } : f)),
       });
-      toast(
-        "Razorpay checkout would open here with orderId " +
-        res.data.data.orderId +
-        " — wire up Razorpay Checkout.js on the frontend using razorpayKeyId from this response.",
-        { duration: 6000 }
-      );
+      setPurchaseFlow((f) => (f ? { ...f, stage: "done" } : f));
+      loadPhotos();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Could not start purchase");
+      const stage =
+        err.code === "CANCELLED" ? "cancelled" : err.code === "STILL_PENDING" ? "pending" : "error";
+      setPurchaseFlow((f) => (f ? { ...f, stage, error: err.message } : f));
+      if (err.code === "STILL_PENDING") loadPhotos();
     }
   };
 
@@ -437,577 +456,612 @@ export default function EventDetails() {
         <div className="absolute bottom-0 left-1/3 h-[26rem] w-[26rem] rounded-full bg-sky-200/30 blur-3xl" />
       </div>
 
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <BackButton />
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <BackButton />
 
-      {/* ---------- Hero ---------- */}
-      <div className="mb-6 overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
-        <div className="relative h-52 sm:h-72">
-          {event.coverImageUrl ? (
-            <img src={event.coverImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary via-indigo-700 to-accent" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+        {/* ---------- Hero ---------- */}
+        <div className="mb-6 overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
+          <div className="relative h-52 sm:h-72">
+            {event.coverImageUrl ? (
+              <img src={event.coverImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary via-indigo-700 to-accent" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
 
-          <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
-            <span
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-md ${event.status === "ACTIVE"
-                ? "bg-emerald-400/25 text-emerald-50 border border-emerald-300/40"
-                : "bg-white/20 text-white border border-white/30"
-                }`}
-            >
-              {event.status}
-            </span>
-
-            <div className="flex gap-2">
-              {!viewerAccess.isPrimaryOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
-                <button
-                  onClick={handleLeave}
-                  disabled={leaving}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25 disabled:opacity-50"
-                >
-                  <LogOut size={14} />
-                  {leaving ? "Leaving..." : "Leave Event"}
-                </button>
-              )}
-              {isPrimaryOrganizer && (
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25"
-                >
-                  <Settings size={14} />
-                  Settings
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-            <h1 className="font-display text-3xl font-medium text-white drop-shadow sm:text-4xl">{event.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-white/90">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays size={14} />
-                {new Date(event.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+            <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-md ${event.status === "ACTIVE"
+                  ? "bg-emerald-400/25 text-emerald-50 border border-emerald-300/40"
+                  : "bg-white/20 text-white border border-white/30"
+                  }`}
+              >
+                {event.status}
               </span>
-              {event.location && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={14} />
-                  {event.location}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {(event.description || viewerAccess.isOrganizer || viewerAccess.isPhotographer) && (
-          <div className="space-y-4 p-5 sm:p-6">
-            {event.description && (
-              <div>
-                <p
-                  className={`max-w-3xl whitespace-pre-line text-sm leading-relaxed text-text-muted ${descOpen ? "" : "line-clamp-3"
-                    }`}
-                >
-                  {event.description}
-                </p>
-                {event.description.length > 180 && (
+              <div className="flex gap-2">
+                {(viewerAccess.isParticipant || viewerAccess.isPhotographer || viewerAccess.isOrganizer) && (
                   <button
-                    onClick={() => setDescOpen((v) => !v)}
-                    className="mt-1 text-xs font-medium text-primary hover:underline"
+                    onClick={() => navigate(`/events/${slug}/slideshow`)}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25"
                   >
-                    {descOpen ? "Show less" : "Read more"}
+                    <Presentation size={14} />
+                    Slideshow
+                  </button>
+                )}
+                {!viewerAccess.isPrimaryOrganizer && (viewerAccess.isParticipant || viewerAccess.isPhotographer) && (
+                  <button
+                    onClick={handleLeave}
+                    disabled={leaving}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25 disabled:opacity-50"
+                  >
+                    <LogOut size={14} />
+                    {leaving ? "Leaving..." : "Leave Event"}
+                  </button>
+                )}
+                {isPrimaryOrganizer && (
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-md transition hover:bg-white/25"
+                  >
+                    <Settings size={14} />
+                    Settings
                   </button>
                 )}
               </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2">
-              {viewerAccess.isPrimaryOrganizer && (
-                <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  <Crown size={12} /> You are the primary organizer of this event
-                </span>
-              )}
-              {viewerAccess.isPhotographer && (
-                <span className="flex items-center gap-1.5 rounded-full bg-accent/20 px-3 py-1 text-xs font-medium text-on-accent">
-                  <CameraIcon size={12} /> You're a photographer
-                </span>
-              )}
-              {viewerAccess.isPrimaryOrganizer && event.eventCode && (
-                <button
-                  onClick={handleCopyId}
-                  className="flex items-center gap-1.5 rounded-full border border-border bg-surface-sunken px-3 py-1 text-xs text-text-muted transition hover:text-text"
-                  aria-label="Copy event ID"
-                >
-                  {idCopied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-                  <span>Event ID</span>
-                  <span className="font-mono tracking-widest">{formatEventCode(event.eventCode)}</span>
-                </button>
-              )}
             </div>
+
+            <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+              <h1 className="font-display text-3xl font-medium text-white drop-shadow sm:text-4xl">{event.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-white/90">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays size={14} />
+                  {new Date(event.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+                {event.location && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin size={14} />
+                    {event.location}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {(event.description || viewerAccess.isOrganizer || viewerAccess.isPhotographer) && (
+            <div className="space-y-4 p-5 sm:p-6">
+              {event.description && (
+                <div>
+                  <p
+                    className={`max-w-3xl whitespace-pre-line text-sm leading-relaxed text-text-muted ${descOpen ? "" : "line-clamp-3"
+                      }`}
+                  >
+                    {event.description}
+                  </p>
+                  {event.description.length > 180 && (
+                    <button
+                      onClick={() => setDescOpen((v) => !v)}
+                      className="mt-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      {descOpen ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {viewerAccess.isPrimaryOrganizer && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <Crown size={12} /> You are the primary organizer of this event
+                  </span>
+                )}
+                {viewerAccess.isPhotographer && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-accent/20 px-3 py-1 text-xs font-medium text-on-accent">
+                    <CameraIcon size={12} /> You're a photographer
+                  </span>
+                )}
+                {viewerAccess.isPrimaryOrganizer && event.eventCode && (
+                  <button
+                    onClick={handleCopyId}
+                    className="flex items-center gap-1.5 rounded-full border border-border bg-surface-sunken px-3 py-1 text-xs text-text-muted transition hover:text-text"
+                    aria-label="Copy event ID"
+                  >
+                    {idCopied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                    <span>Event ID</span>
+                    <span className="font-mono tracking-widest">{formatEventCode(event.eventCode)}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <ExpiryBanner event={event} onOpenSettings={isPrimaryOrganizer ? () => setShowSettings(true) : undefined} />
+        {/* ---------- Stats (organizer only) ---------- */}
+        {isOrganizer && stats && (
+          <div className="mb-8 grid animate-fade-in grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {[
+              {
+                label: "Participants",
+                value: stats.participantCount,
+                icon: Users,
+                grad: "from-indigo-500 to-indigo-700",
+                glow: "shadow-indigo-500/30",
+              },
+              {
+                label: "Photographers",
+                value: stats.photographerCount,
+                icon: CameraIcon,
+                grad: "from-sky-500 to-cyan-600",
+                glow: "shadow-sky-500/30",
+              },
+              {
+                label: "Photos",
+                value: stats.totalPhotos,
+                icon: ImageIcon,
+                grad: "from-violet-500 to-fuchsia-600",
+                glow: "shadow-violet-500/30",
+                sub: `${stats.officialPhotos} official · ${stats.communityPhotos} community`,
+              },
+              {
+                label: "Likes",
+                value: stats.totalLikes,
+                icon: Heart,
+                grad: "from-rose-500 to-orange-500",
+                glow: "shadow-rose-500/30",
+                fill: true,
+                sub: `${stats.totalDownloads} download${stats.totalDownloads === 1 ? "" : "s"}`,
+                subIcon: Download,
+              },
+            ].map(({ label, value, icon: Icon, grad, glow, sub, subIcon: SubIcon, fill }) => (
+              <div
+                key={label}
+                className="group relative overflow-hidden rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card sm:p-5"
+              >
+                {/* big faded icon in the corner */}
+                <Icon
+                  aria-hidden="true"
+                  size={84}
+                  strokeWidth={1.25}
+                  className="absolute -bottom-4 -right-3 text-slate-900/[0.04] transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6"
+                />
+
+                <div className="relative flex items-center gap-3">
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg ${grad} ${glow}`}
+                  >
+                    <Icon size={20} className={fill ? "fill-white" : ""} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-text-muted">{label}</p>
+                    <p
+                      key={value}
+                      className="animate-scale-in text-2xl font-semibold leading-tight text-slate-900"
+                    >
+                      {value}
+                    </p>
+                  </div>
+                </div>
+
+                {sub && (
+                  <p className="relative mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2.5 text-[11px] font-medium text-text-muted">
+                    {SubIcon && <SubIcon size={11} />}
+                    {sub}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* ---------- Stats (organizer only) ---------- */}
-      {isOrganizer && stats && (
-        <div className="mb-8 grid animate-fade-in grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {[
-            {
-              label: "Participants",
-              value: stats.participantCount,
-              icon: Users,
-              grad: "from-indigo-500 to-indigo-700",
-              glow: "shadow-indigo-500/30",
-            },
-            {
-              label: "Photographers",
-              value: stats.photographerCount,
-              icon: CameraIcon,
-              grad: "from-sky-500 to-cyan-600",
-              glow: "shadow-sky-500/30",
-            },
-            {
-              label: "Photos",
-              value: stats.totalPhotos,
-              icon: ImageIcon,
-              grad: "from-violet-500 to-fuchsia-600",
-              glow: "shadow-violet-500/30",
-              sub: `${stats.officialPhotos} official · ${stats.communityPhotos} community`,
-            },
-            {
-              label: "Likes",
-              value: stats.totalLikes,
-              icon: Heart,
-              grad: "from-rose-500 to-orange-500",
-              glow: "shadow-rose-500/30",
-              fill: true,
-              sub: `${stats.totalDownloads} download${stats.totalDownloads === 1 ? "" : "s"}`,
-              subIcon: Download,
-            },
-          ].map(({ label, value, icon: Icon, grad, glow, sub, subIcon: SubIcon, fill }) => (
-            <div
-              key={label}
-              className="group relative overflow-hidden rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm ring-1 ring-slate-200/70 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card sm:p-5"
-            >
-              {/* big faded icon in the corner */}
-              <Icon
-                aria-hidden="true"
-                size={84}
-                strokeWidth={1.25}
-                className="absolute -bottom-4 -right-3 text-slate-900/[0.04] transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6"
-              />
+        {/* ---------- Tabs (sticky) ---------- */}
+        <div className="sticky top-[72px] z-30 -mx-4 mb-6 bg-[#f4f5fb]/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div
+            role="tablist"
+            className="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-white/90 p-1.5 shadow-sm ring-1 ring-slate-200/70"
+          >
+            {(isOrganizer ? [...TABS, "Reports"] : TABS).map((t) => {
+              const TabIcon = TAB_ICONS[t];
+              const selected = tab === t;
+              return (
+                <button
+                  key={t}
 
-              <div className="relative flex items-center gap-3">
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg ${grad} ${glow}`}
-                >
-                  <Icon size={20} className={fill ? "fill-white" : ""} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-text-muted">{label}</p>
-                  <p
-                    key={value}
-                    className="animate-scale-in text-2xl font-semibold leading-tight text-slate-900"
-                  >
-                    {value}
-                  </p>
-                </div>
-              </div>
-
-              {sub && (
-                <p className="relative mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2.5 text-[11px] font-medium text-text-muted">
-                  {SubIcon && <SubIcon size={11} />}
-                  {sub}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ---------- Tabs (sticky) ---------- */}
-      <div className="sticky top-[72px] z-30 -mx-4 mb-6 bg-[#f4f5fb]/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div
-          role="tablist"
-          className="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-white/90 p-1.5 shadow-sm ring-1 ring-slate-200/70"
-        >
-          {TABS.map((t) => {
-            const TabIcon = TAB_ICONS[t];
-            const selected = tab === t;
-            return (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setTab(t)}
-                onMouseEnter={() => warmTab(t)}
-                onFocus={() => warmTab(t)}
-                onTouchStart={() => warmTab(t)}
-                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${
-                  selected
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setTab(t)}
+                  onMouseEnter={() => warmTab(t)}
+                  onFocus={() => warmTab(t)}
+                  onTouchStart={() => warmTab(t)}
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${selected
                     ? "bg-[#26345f] text-white shadow-md"
                     : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
-                }`}
-              >
-                <TabIcon size={15} />
-                {t}
-              </button>
-            );
-          })}
+                    }`}
+                >
+                  <TabIcon size={15} />
+                  {t}
+                  {t === "Reports" && openReports > 0 && (
+                    <span className="rounded-full bg-error px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      {openReports}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {tab === "Gallery" && (
-        <div>
-          {/* album + layout toolbar */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
-                {["OFFICIAL", "COMMUNITY"].map((a) => {
-                  const AlbumIcon = a === "OFFICIAL" ? CameraIcon : Users;
-                  return (
-                    <button
-                      key={a}
-                      onClick={() => setAlbum(a)}
-                      className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
-                        album === a
+        {tab === "Gallery" && (
+          <div>
+            <NewPhotosBanner
+              eventId={eventId}
+              album={album}
+              photos={photos}
+              loading={photosLoading}
+              active={tab === "Gallery"}
+              onRefresh={loadPhotos}
+            />
+            {/* album + layout toolbar */}
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+                  {["OFFICIAL", "COMMUNITY"].map((a) => {
+                    const AlbumIcon = a === "OFFICIAL" ? CameraIcon : Users;
+                    return (
+                      <button
+                        key={a}
+                        onClick={() => setAlbum(a)}
+                        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${album === a
                           ? "bg-[#26345f] text-white shadow"
                           : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
-                      }`}
-                    >
-                      <AlbumIcon size={14} />
-                      {a === "OFFICIAL" ? "Official" : "Community"}
-                    </button>
-                  );
-                })}
+                          }`}
+                      >
+                        <AlbumIcon size={14} />
+                        {a === "OFFICIAL" ? "Official" : "Community"}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {!photosLoading && (
+                  <span className="text-sm font-medium text-text-muted">
+                    {photos.length} photo{photos.length === 1 ? "" : "s"}
+                  </span>
+                )}
               </div>
 
-              {!photosLoading && (
-                <span className="text-sm font-medium text-text-muted">
-                  {photos.length} photo{photos.length === 1 ? "" : "s"}
-                </span>
-              )}
-            </div>
-
-            <div className="flex gap-1 rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
-              {LAYOUTS.map(({ key, label, icon: LayoutIcon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  title={`${label} layout`}
-                  aria-label={`${label} layout`}
-                  aria-pressed={layout === key}
-                  onClick={() => changeLayout(key)}
-                  className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all ${
-                    layout === key
+              <div className="flex gap-1 rounded-xl bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+                {LAYOUTS.map(({ key, label, icon: LayoutIcon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    title={`${label} layout`}
+                    aria-label={`${label} layout`}
+                    aria-pressed={layout === key}
+                    onClick={() => changeLayout(key)}
+                    className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all ${layout === key
                       ? "bg-[#26345f] text-white shadow"
                       : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-700"
-                  }`}
-                >
-                  <LayoutIcon size={15} />
-                  <span className="hidden sm:inline">{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {photosLoading ? (
-            layout === "masonry" ? (
-              <PhotoGridSkeleton count={8} />
-            ) : (
-              <div className={LAYOUT_CLASS.grid}>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="skeleton aspect-[4/5] rounded-2xl" aria-hidden="true" />
+                      }`}
+                  >
+                    <LayoutIcon size={15} />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
                 ))}
               </div>
-            )
-          ) : photos.length === 0 ? (
-            <EmptyState
-              icon={Images}
-              title="No photos in this album yet"
-              description={
-                album === "OFFICIAL"
-                  ? "Once a photographer uploads, official photos will show up here."
-                  : "Participant-uploaded photos will show up here."
-              }
-            />
-          ) : (
-            <div className={`${LAYOUT_CLASS[layout]} animate-fade-in`}>
-              {photos.map((photo, i) => (
-                <PhotoCard
-                  key={photo._id}
-                  photo={photo}
-                  variant={layout === "masonry" ? "masonry" : layout === "grid" ? "tile" : "fill"}
-                  className={layout === "mosaic" ? mosaicSpan(i) : ""}
-                  onOpen={() => setLightboxIndex(i)}
-                  onLike={handleLike}
-                  onFavourite={handleFavourite}
-                  onDownload={handleDownload}
-                  onBuy={handleBuy}
-                  onDelete={canDeletePhoto(photo) ? handleDeletePhoto : undefined}
-                  downloading={downloadingId === photo._id}
-                  liked={likedIds.has(photo._id)}
-                  favourited={favouritedIds.has(photo._id)}
-                />
-              ))}
             </div>
-          )}
 
-          {lightboxIndex !== null && (
-            <PhotoLightbox
-              photos={photos}
-              index={lightboxIndex}
-              onClose={() => setLightboxIndex(null)}
-              onNavigate={setLightboxIndex}
-              onDownload={handleDownload}
-              onLike={handleLike}
-              onFavourite={handleFavourite}
-              onDelete={handleDeletePhoto}
-              canDelete={canDeletePhoto}
-              downloadingId={downloadingId}
-              likedIds={likedIds}
-              favouritedIds={favouritedIds}
-            />
-          )}
-        </div>
-      )}
+            {photosLoading ? (
+              layout === "masonry" ? (
+                <PhotoGridSkeleton count={8} />
+              ) : (
+                <div className={LAYOUT_CLASS.grid}>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="skeleton aspect-[4/5] rounded-2xl" aria-hidden="true" />
+                  ))}
+                </div>
+              )
+            ) : photos.length === 0 ? (
+              <EmptyState
+                icon={Images}
+                title="No photos in this album yet"
+                description={
+                  album === "OFFICIAL"
+                    ? "Once a photographer uploads, official photos will show up here."
+                    : "Participant-uploaded photos will show up here."
+                }
+              />
+            ) : (
+              <div className={`${LAYOUT_CLASS[layout]} animate-fade-in`}>
+                {photos.map((photo, i) => (
+                  <PhotoCard
+                    key={photo._id}
+                    photo={photo}
+                    variant={layout === "masonry" ? "masonry" : layout === "grid" ? "tile" : "fill"}
+                    className={layout === "mosaic" ? mosaicSpan(i) : ""}
+                    onOpen={() => setLightboxIndex(i)}
+                    onLike={handleLike}
+                    onFavourite={handleFavourite}
+                    onDownload={handleDownload}
+                    onBuy={handleBuy}
+                    onDelete={canDeletePhoto(photo) ? handleDeletePhoto : undefined}
+                    onReport={String(photo.uploaderId) === String(user?._id) ? undefined : setReportingPhoto}
+                    downloading={downloadingId === photo._id}
+                    liked={likedIds.has(photo._id)}
+                    favourited={favouritedIds.has(photo._id)}
+                  />
+                ))}
+              </div>
+            )}
 
-      {tab === "Upload" && (
-        <PhotoUploader
-          eventId={eventId}
-          canUploadOfficial={viewerAccess.isPhotographer}
-          canUploadCommunity={viewerAccess.isParticipant}
-          onUploaded={() => {
-            loadPhotos();
-            refreshStats();
-          }}
-        />
-      )}
+            {lightboxIndex !== null && (
+              <PhotoLightbox
+                photos={photos}
+                index={lightboxIndex}
+                onClose={() => setLightboxIndex(null)}
+                onNavigate={setLightboxIndex}
+                onDownload={handleDownload}
+                onLike={handleLike}
+                onFavourite={handleFavourite}
+                onDelete={handleDeletePhoto}
+                canDelete={canDeletePhoto}
+                onReport={setReportingPhoto}
+                canReport={(p) => String(p.uploaderId) !== String(user?._id)}
+                downloadingId={downloadingId}
+                likedIds={likedIds}
+                favouritedIds={favouritedIds}
+              />
+            )}
+          </div>
+        )}
 
-      {tab === "Find My Photos" && (
-        <FindMyPhotosPanel
-          eventId={eventId}
-          onDownload={handleDownload}
-          onBuy={handleBuy}
-          onLike={handleLike}
-          onFavourite={handleFavourite}
-          likedIds={likedIds}
-          favouritedIds={favouritedIds}
-          photoPatches={photoPatches}
-          removedIds={removedIds}
-        />
-      )}
-
-      {(tab === "Participants" || warmTabs.includes("Participants")) && (
-        <div hidden={tab !== "Participants"} className={tab === "Participants" ? "animate-fade-in" : ""}>
-          <ParticipantsPanel
+        {tab === "Upload" && (
+          <PhotoUploader
             eventId={eventId}
-            isOrganizer={isOrganizer}
-            isPrimaryOrganizer={isPrimaryOrganizer}
-            onChanged={refreshStats}
-            active={tab === "Participants"}
+            canUploadOfficial={viewerAccess.isPhotographer}
+            canUploadCommunity={viewerAccess.isParticipant}
+            onUploaded={() => {
+              loadPhotos();
+              refreshStats();
+            }}
           />
-        </div>
-      )}
+        )}
 
-      {(tab === "Photographers" || warmTabs.includes("Photographers")) && (
-        <div hidden={tab !== "Photographers"} className={tab === "Photographers" ? "animate-fade-in" : ""}>
-          <PhotographersPanel
+        {tab === "Find My Photos" && (
+          <FindMyPhotosPanel
             eventId={eventId}
-            isOrganizer={isOrganizer}
-            onChanged={refreshStats}
-            active={tab === "Photographers"}
+            onDownload={handleDownload}
+            onBuy={handleBuy}
+            onLike={handleLike}
+            onFavourite={handleFavourite}
+            likedIds={likedIds}
+            favouritedIds={favouritedIds}
+            photoPatches={photoPatches}
+            removedIds={removedIds}
           />
-        </div>
-      )}
-      {showSettings && viewerAccess.isOrganizer && (
-        <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
-          <div className="space-y-6">
-            <EventIdCard eventCode={event.eventCode} />
-            <CoverImageCard
+        )}
+
+        {(tab === "Participants" || warmTabs.includes("Participants")) && (
+          <div hidden={tab !== "Participants"} className={tab === "Participants" ? "animate-fade-in" : ""}>
+            <ParticipantsPanel
               eventId={eventId}
-              coverImageUrl={event.coverImageUrl}
-              onChange={(coverImageUrl) => setEvent((prev) => ({ ...prev, coverImageUrl }))}
-              onRequestConfirm={setConfirmState}
+              isOrganizer={isOrganizer}
+              isPrimaryOrganizer={isPrimaryOrganizer}
+              onChanged={refreshStats}
+              active={tab === "Participants"}
             />
-            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-              <h3 className="font-medium mb-1 flex items-center gap-1.5">
-                <KeyRound size={16} />
-                Participant Passcode
-              </h3>
-              <p className="text-xs text-text-muted mb-4">
-                Share this with people joining as regular participants. You can come back and view it here any time —
-                it isn't only shown once anymore.
-              </p>
-              {passcodeLoading ? (
-                <div className="skeleton h-11 w-full rounded-lg" />
-              ) : passcodeNeedsRegen ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-error">
-                    This event's passcode was created before this feature existed and can't be recovered — generate a
-                    new one to enable viewing it going forward.
-                  </p>
+          </div>
+        )}
+
+        {(tab === "Photographers" || warmTabs.includes("Photographers")) && (
+          <div hidden={tab !== "Photographers"} className={tab === "Photographers" ? "animate-fade-in" : ""}>
+            <PhotographersPanel
+              eventId={eventId}
+              isOrganizer={isOrganizer}
+              onChanged={refreshStats}
+              active={tab === "Photographers"}
+            />
+          </div>
+        )}
+        {tab === "Reports" && isOrganizer && (
+          <ReportsPanel eventId={eventId} onRequestConfirm={setConfirmState} onCountChange={setOpenReports} />
+        )}
+        {showSettings && viewerAccess.isOrganizer && (
+          <Modal title="Event Settings" size="lg" onClose={() => setShowSettings(false)}>
+            <div className="space-y-6">
+              <EventIdCard eventCode={event.eventCode} />
+              <CoverImageCard
+                eventId={eventId}
+                coverImageUrl={event.coverImageUrl}
+                onChange={(coverImageUrl) => setEvent((prev) => ({ ...prev, coverImageUrl }))}
+                onRequestConfirm={setConfirmState}
+              />
+              <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+                <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                  <KeyRound size={16} />
+                  Participant Passcode
+                </h3>
+                <p className="text-xs text-text-muted mb-4">
+                  Share this with people joining as regular participants. You can come back and view it here any time —
+                  it isn't only shown once anymore.
+                </p>
+                {passcodeLoading ? (
+                  <div className="skeleton h-11 w-full rounded-lg" />
+                ) : passcodeNeedsRegen ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-error">
+                      This event's passcode was created before this feature existed and can't be recovered — generate a
+                      new one to enable viewing it going forward.
+                    </p>
+                    <button
+                      onClick={handleRegeneratePasscode}
+                      disabled={regenerating}
+                      className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition w-fit"
+                    >
+                      {regenerating ? "Generating..." : "Generate New Passcode"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center justify-between bg-surface-sunken border border-border rounded-lg px-4 py-2.5 font-mono text-lg tracking-[0.3em] text-primary">
+                      {passcodeVisible ? passcode : "••••••"}
+                      <button
+                        onClick={() => setPasscodeVisible((v) => !v)}
+                        className="text-text-muted hover:text-primary transition"
+                        aria-label={passcodeVisible ? "Hide passcode" : "Show passcode"}
+                      >
+                        {passcodeVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleCopyPasscode}
+                      className="flex items-center justify-center w-10 h-10 rounded-lg border border-border hover:bg-surface-hover transition shrink-0"
+                      aria-label="Copy passcode"
+                    >
+                      {passcodeCopied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                )}
+                {!passcodeLoading && !passcodeNeedsRegen && (
                   <button
                     onClick={handleRegeneratePasscode}
                     disabled={regenerating}
-                    className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition w-fit"
+                    className="text-xs text-text-muted hover:text-error transition mt-3"
                   >
-                    {regenerating ? "Generating..." : "Generate New Passcode"}
+                    {regenerating ? "Generating..." : "Generate a new passcode instead"}
                   </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center justify-between bg-surface-sunken border border-border rounded-lg px-4 py-2.5 font-mono text-lg tracking-[0.3em] text-primary">
-                    {passcodeVisible ? passcode : "••••••"}
-                    <button
-                      onClick={() => setPasscodeVisible((v) => !v)}
-                      className="text-text-muted hover:text-primary transition"
-                      aria-label={passcodeVisible ? "Hide passcode" : "Show passcode"}
-                    >
-                      {passcodeVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                )}
+              </div>
+              <PasscodeCard
+                title="Photographer Passcode"
+                description="A separate passcode for your official photographers. They enter it with the Event ID under Join as Photographer. Don't share it with regular participants."
+                fetchPasscode={() => eventService.getPhotographerPasscode(eventId)}
+                regeneratePasscode={() => eventService.regeneratePhotographerPasscode(eventId)}
+                onRequestConfirm={setConfirmState}
+              />
+              <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+                <h3 className="font-medium mb-1">Participant QR Code</h3>
+                <p className="text-xs text-text-muted mb-4">Anyone who scans this joins as a regular participant.</p>
+                {!joinQr ? (
+                  <button onClick={loadQr} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm">
+                    Generate QR
+                  </button>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="bg-white p-4 rounded-lg">
+                      <QRCodeSVG value={joinQr.joinUrl} size={160} />
+                    </div>
+                    <p className="text-xs text-text-muted break-all">{joinQr.joinUrl}</p>
                   </div>
+                )}
+              </div>
+
+              <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+                <h3 className="font-medium mb-1 text-primary">Photographer QR Code</h3>
+                <p className="text-xs text-text-muted mb-4">
+                  A separate code — only share this with your official photographers. Scanning it assigns them as a
+                  photographer for this event (in addition to the organizer adding them by email in the Photographers
+                  tab).
+                </p>
+                {!photographerJoinQr ? (
                   <button
-                    onClick={handleCopyPasscode}
-                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-border hover:bg-surface-hover transition shrink-0"
-                    aria-label="Copy passcode"
+                    onClick={loadPhotographerQr}
+                    className="bg-accent hover:bg-accent/90 text-on-accent font-medium px-4 py-2 rounded-lg text-sm"
                   >
-                    {passcodeCopied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                    Generate Photographer QR
                   </button>
-                </div>
-              )}
-              {!passcodeLoading && !passcodeNeedsRegen && (
-                <button
-                  onClick={handleRegeneratePasscode}
-                  disabled={regenerating}
-                  className="text-xs text-text-muted hover:text-error transition mt-3"
-                >
-                  {regenerating ? "Generating..." : "Generate a new passcode instead"}
-                </button>
-              )}
-            </div>
-            <PasscodeCard
-              title="Photographer Passcode"
-              description="A separate passcode for your official photographers. They enter it with the Event ID under Join as Photographer. Don't share it with regular participants."
-              fetchPasscode={() => eventService.getPhotographerPasscode(eventId)}
-              regeneratePasscode={() => eventService.regeneratePhotographerPasscode(eventId)}
-              onRequestConfirm={setConfirmState}
-            />
-            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-              <h3 className="font-medium mb-1">Participant QR Code</h3>
-              <p className="text-xs text-text-muted mb-4">Anyone who scans this joins as a regular participant.</p>
-              {!joinQr ? (
-                <button onClick={loadQr} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm">
-                  Generate QR
-                </button>
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="bg-white p-4 rounded-lg">
-                    <QRCodeSVG value={joinQr.joinUrl} size={160} />
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="bg-white p-4 rounded-lg">
+                      <QRCodeSVG value={photographerJoinQr.joinUrl} size={160} />
+                    </div>
+                    <p className="text-xs text-text-muted break-all">{photographerJoinQr.joinUrl}</p>
                   </div>
-                  <p className="text-xs text-text-muted break-all">{joinQr.joinUrl}</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-              <h3 className="font-medium mb-1 text-primary">Photographer QR Code</h3>
-              <p className="text-xs text-text-muted mb-4">
-                A separate code — only share this with your official photographers. Scanning it assigns them as a
-                photographer for this event (in addition to the organizer adding them by email in the Photographers
-                tab).
-              </p>
-              {!photographerJoinQr ? (
+              <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+                <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                  <CalendarClock size={16} />
+                  Extend Event Duration
+                </h3>
+                <p className="text-xs text-text-muted mb-4">
+                  Currently expires {new Date(event.expiryDate).toLocaleString()}. Pushing this into the future
+                  automatically re-activates the event if it had already expired.
+                </p>
+                <form onSubmit={handleExtend} className="flex flex-col gap-3">
+                  <input
+                    type="datetime-local"
+                    required
+                    min={nowLocalInput()}
+                    className="px-3 py-2 rounded-lg bg-surface-sunken border border-border focus:border-primary outline-none text-sm"
+                    value={newExpiryDate}
+                    onChange={(e) => setNewExpiryDate(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={extending}
+                    className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
+                  >
+                    {extending ? "Extending..." : "Extend Event"}
+                  </button>
+                </form>
+              </div>
+
+              <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
+                <h3 className="font-medium mb-1 flex items-center gap-1.5">
+                  <RefreshCw size={16} />
+                  Sync with Cloudinary
+                </h3>
+                <p className="text-xs text-text-muted mb-4">
+                  If a photo was deleted directly in your Cloudinary dashboard instead of through SnapShare, it can get
+                  stuck here pointing at a dead file. Run this to clean those up.
+                </p>
                 <button
-                  onClick={loadPhotographerQr}
-                  className="bg-accent hover:bg-accent/90 text-on-accent font-medium px-4 py-2 rounded-lg text-sm"
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 bg-surface-hover hover:bg-secondary/40 disabled:opacity-50 text-primary px-4 py-2 rounded-lg text-sm transition"
                 >
-                  Generate Photographer QR
+                  <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+                  {syncing ? "Checking..." : "Sync Now"}
                 </button>
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="bg-white p-4 rounded-lg">
-                    <QRCodeSVG value={photographerJoinQr.joinUrl} size={160} />
-                  </div>
-                  <p className="text-xs text-text-muted break-all">{photographerJoinQr.joinUrl}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-              <h3 className="font-medium mb-1 flex items-center gap-1.5">
-                <CalendarClock size={16} />
-                Extend Event Duration
-              </h3>
-              <p className="text-xs text-text-muted mb-4">
-                Currently expires {new Date(event.expiryDate).toLocaleString()}. Pushing this into the future
-                automatically re-activates the event if it had already expired.
-              </p>
-              <form onSubmit={handleExtend} className="flex flex-col gap-3">
-                <input
-                  type="datetime-local"
-                  required
-                  min={nowLocalInput()}
-                  className="px-3 py-2 rounded-lg bg-surface-sunken border border-border focus:border-primary outline-none text-sm"
-                  value={newExpiryDate}
-                  onChange={(e) => setNewExpiryDate(e.target.value)}
-                />
+              </div>
+              <ExportCard eventId={eventId} />
+              <div className="bg-error/5 border border-error/30 rounded-xl p-6">
+                <h3 className="font-medium mb-1 text-error flex items-center gap-1.5">
+                  <Trash2 size={16} />
+                  Danger Zone
+                </h3>
+                <p className="text-xs text-text-muted mb-4">
+                  Permanently deletes this event, all its photos, participant records, and photographer assignments.
+                  This cannot be undone.
+                </p>
                 <button
-                  type="submit"
-                  disabled={extending}
-                  className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="bg-error hover:bg-error/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
                 >
-                  {extending ? "Extending..." : "Extend Event"}
+                  {deleting ? "Deleting..." : "Delete Event"}
                 </button>
-              </form>
+              </div>
             </div>
-
-            <div className="bg-surface border border-border rounded-xl p-6 shadow-card">
-              <h3 className="font-medium mb-1 flex items-center gap-1.5">
-                <RefreshCw size={16} />
-                Sync with Cloudinary
-              </h3>
-              <p className="text-xs text-text-muted mb-4">
-                If a photo was deleted directly in your Cloudinary dashboard instead of through SnapShare, it can get
-                stuck here pointing at a dead file. Run this to clean those up.
-              </p>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="flex items-center gap-1.5 bg-surface-hover hover:bg-secondary/40 disabled:opacity-50 text-primary px-4 py-2 rounded-lg text-sm transition"
-              >
-                <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-                {syncing ? "Checking..." : "Sync Now"}
-              </button>
-            </div>
-
-            <div className="bg-error/5 border border-error/30 rounded-xl p-6">
-              <h3 className="font-medium mb-1 text-error flex items-center gap-1.5">
-                <Trash2 size={16} />
-                Danger Zone
-              </h3>
-              <p className="text-xs text-text-muted mb-4">
-                Permanently deletes this event, all its photos, participant records, and photographer assignments.
-                This cannot be undone.
-              </p>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="bg-error hover:bg-error/90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition"
-              >
-                {deleting ? "Deleting..." : "Delete Event"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-      {confirmState && (
-        <ConfirmDialog
-          {...confirmState}
-          onCancel={() => setConfirmState(null)}
-        />
-      )}
-    </div>
+          </Modal>
+        )}
+        {reportingPhoto && <ReportPhotoModal photo={reportingPhoto} onClose={() => setReportingPhoto(null)} />}
+        {confirmState && (
+          <ConfirmDialog
+            {...confirmState}
+            onCancel={() => setConfirmState(null)}
+          />
+        )}
+        {purchaseFlow && (
+          <PaymentStatusModal
+            flow={purchaseFlow}
+            onClose={() => setPurchaseFlow(null)}
+            onRetry={() => handleBuy(purchaseFlow.photo)}
+            onDownload={() => handleDownload(purchaseFlow.photo)}
+          />
+        )}
+      </div>
     </div>
   );
 }

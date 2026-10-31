@@ -15,7 +15,18 @@ const paymentSchema = new mongoose.Schema(
 
     amount: { type: Number, required: true, min: 0 }, // in smallest currency unit (paise)
     currency: { type: String, default: "INR" },
-
+    // Snapshot taken at order time: exactly what gets unlocked on success (amounts in paise)
+    items: {
+      type: [{
+        _id: false,
+        photoId: { type: mongoose.Schema.Types.ObjectId, ref: "Photo", required: true },
+        amount: { type: Number, required: true },
+        fee: { type: Number, default: 0 },
+      }],
+      default: [],
+    },
+    platformFee: { type: Number, default: 0 },
+    transferAccountId: { type: String, default: null },
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
     razorpayPaymentId: { type: String, default: null },
     razorpaySignature: { type: String, default: null },
