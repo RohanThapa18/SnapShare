@@ -16,6 +16,9 @@ import JoinEventAsPhotographer from "./pages/JoinEventAsPhotographer";
 import PurchaseHistory from "./pages/PurchaseHistory";
 import NotFound from "./pages/NotFound";
 import PageTransition from "./components/PageTransition";
+import MySales from "./pages/MySales";
+import AdminPayouts from "./pages/AdminPayouts";
+import Slideshow from "./pages/Slideshow";
 
 function App() {
   return (
@@ -68,10 +71,6 @@ function App() {
             />
 
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-
-            {/* Single unified dashboard — no more role-specific routes.
-              Create/Join/Join-as-Photographer all live here now,
-              Google-Classroom style. */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
             <Route path="/events/create" element={<ProtectedRoute><CreateEvent /></ProtectedRoute>} />
@@ -83,8 +82,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
+            <Route path="/events/:slug/slideshow" element={<ProtectedRoute><Slideshow /></ProtectedRoute>} />
             <Route path="/purchases" element={<ProtectedRoute><PurchaseHistory /></ProtectedRoute>} />
+            <Route path="/sales" element={<ProtectedRoute><MySales /></ProtectedRoute>} />
+            <Route path="/admin/payouts" element={<ProtectedRoute><AdminPayouts /></ProtectedRoute>} />
+            <Route path="/admin/payouts" element={<ProtectedRoute><AdminPayouts /></ProtectedRoute>} />
             <Route path="/liked" element={<ProtectedRoute><LikedFavourites /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

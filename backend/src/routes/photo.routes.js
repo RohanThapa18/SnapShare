@@ -6,6 +6,10 @@ import { requireActiveEvent } from "../middleware/eventStatus.js";
 import { requireEventParticipant, requireEventPhotographer } from "../middleware/membership.js";
 import { requireEventOwner } from "../middleware/membership.js";
 import { uploadMultiple } from "../middleware/upload.js";
+import rateLimit from "express-rate-limit";
+import { validate } from "../middleware/validate.js";
+import * as reportController from "../controllers/report.controller.js";
+import { reportPhotoSchema } from "../validators/report.validators.js";
 
 // Nested under /api/events/:id/photos
 export const eventPhotoRouter = Router({ mergeParams: true });
@@ -13,7 +17,8 @@ export const eventPhotoRouter = Router({ mergeParams: true });
 eventPhotoRouter.use(requireAuth);
 
 eventPhotoRouter.get("/", requireEventParticipant, photoController.listPhotos);
-
+// Lightweight poll behind the "N new photos" banner
+eventPhotoRouter.get("/new-count", requireEventParticipant, photoController.countNewPhotos);
 eventPhotoRouter.post(
   "/official",
   requireActiveEvent,
@@ -41,6 +46,8 @@ photoRouter.use(requireAuth);
 photoRouter.delete("/:photoId", photoController.deletePhoto);
 photoRouter.put("/:photoId", photoController.updatePhotoMeta);
 photoRouter.get("/:photoId/download", photoController.downloadPhoto);
+const reportLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
+photoRouter.post("/:photoId/report", reportLimiter, validate(reportPhotoSchema), reportController.reportPhoto);
 
 photoRouter.post("/:photoId/like", interactionController.likePhoto);
 photoRouter.delete("/:photoId/like", interactionController.unlikePhoto);

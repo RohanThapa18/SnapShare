@@ -8,6 +8,7 @@ import {
   loginSchema,
   changePasswordSchema,
   updateProfileSchema,
+  deleteAccountSchema,
 } from "../validators/auth.validators.js";
 import { uploadAvatar } from "../middleware/upload.js";
 
@@ -21,6 +22,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts, please try again later", code: "RATE_LIMITED" },
 });
+// Deleting an account is irreversible and needs the password, so keep guessing slow
+const deleteAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts, please try again later", code: "RATE_LIMITED" },
+});
 
 router.post("/register", authLimiter, validate(registerSchema), authController.register);
 router.post("/login", authLimiter, validate(loginSchema), authController.login);
@@ -30,6 +39,7 @@ router.get("/me", requireAuth, authController.getMe);
 router.put("/me", requireAuth, validate(updateProfileSchema), authController.updateMe);
 router.put("/me/avatar", requireAuth, uploadAvatar, authController.updateAvatar);
 router.delete("/me/avatar", requireAuth, authController.removeAvatar);
+router.delete("/me", requireAuth, deleteAccountLimiter, validate(deleteAccountSchema), authController.deleteMe);
 router.put(
   "/change-password",
   requireAuth,

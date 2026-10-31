@@ -35,6 +35,10 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: PLATFORM_FEE_PERCENT
+        value: "0"
       - key: AI_SERVICE_URL
         fromService:
           type: web

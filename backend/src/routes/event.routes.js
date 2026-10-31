@@ -2,7 +2,9 @@
 import { Router } from "express";
 
 import * as eventController from "../controllers/event.controller.js";
-
+import * as reportController from "../controllers/report.controller.js";
+import * as exportController from "../controllers/export.controller.js";
+import { resolveReportSchema } from "../validators/report.validators.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireActiveEvent } from "../middleware/eventStatus.js";
 import {
@@ -35,6 +37,14 @@ const joinLimiter = rateLimit({
   message: { success: false, message: "Too many join attempts, please try again later", code: "RATE_LIMITED" },
 });
 
+// A full export fetches every photo, so keep it to a few per hour
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many exports, please try again later", code: "RATE_LIMITED" },
+});
 
 router.use(requireAuth);
 router.get("/:id/photographer-passcode", requireEventOwner, eventController.getPhotographerPasscode);
@@ -44,6 +54,14 @@ router.post(
   requireEventOwner,
   eventController.regeneratePhotographerPasscode
 );
+router.get("/:id/reports", requireEventOwner, reportController.listEventReports);
+router.post(
+  "/:id/reports/photos/:photoId/resolve",
+  requireEventOwner,
+  validate(resolveReportSchema),
+  reportController.resolvePhotoReports
+);
+router.get("/:id/export", exportLimiter, requireEventOwner, exportController.exportEventPhotos);
 router.post("/:id/join", joinLimiter, requireActiveEvent, validate(joinEventSchema), eventController.joinEvent);
 // Any authenticated user can create an event.
 router.post(

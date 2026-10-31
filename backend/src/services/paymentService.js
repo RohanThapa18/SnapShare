@@ -1,29 +1,37 @@
 import crypto from "crypto";
 import { getRazorpay } from "../config/razorpay.js";
 
-export const createRazorpayOrder = async (amountInPaise, receipt) => {
-  const razorpay = getRazorpay();
-  return razorpay.orders.create({
+const hmacHex = (secret, payload) => crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+const safeEqual = (a, b) => {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+};
+
+
+export const createRazorpayOrder = async ({ amountInPaise, notes }) => {
+  return getRazorpay().orders.create({
     amount: amountInPaise,
     currency: "INR",
-    receipt,
+    receipt: `ss_${crypto.randomBytes(10).toString("hex")}`,
+    notes,
   });
 };
 
-/**
- * Verifies the Razorpay payment signature server-side using HMAC-SHA256.
- * This is the ONLY source of truth for whether a payment succeeded —
- * the frontend's callback result is never trusted on its own.
- */
+/** Checkout-callback signature: HMAC-SHA256(orderId|paymentId) with the key secret. */
 export const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
   const secret = process.env.RAZORPAY_KEY_SECRET;
   if (!secret) throw new Error("RAZORPAY_KEY_SECRET is not set in .env");
-
-  const expected = Buffer.from(
-    crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex")
-  );
-  const received = Buffer.from(String(signature));
-
-  // constant-time comparison (a plain === leaks timing information)
-  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+  return safeEqual(hmacHex(secret, `${orderId}|${paymentId}`), signature);
 };
+
+/** Webhook signature: HMAC-SHA256 of the RAW request body with the webhook secret. */
+export const verifyWebhookSignature = (rawBody, signature) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) throw new Error("RAZORPAY_WEBHOOK_SECRET is not set in .env");
+  return safeEqual(hmacHex(secret, rawBody), signature);
+};
+
+/** Ask Razorpay itself what happened to this payment (source of truth). */
+export const fetchRazorpayPayment = (paymentId) => getRazorpay().payments.fetch(paymentId);

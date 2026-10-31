@@ -28,3 +28,8 @@ export const updateProfileSchema = z.object({
     avatarUrl: z.string().url().optional(),
   }),
 });
+export const deleteAccountSchema = z.object({
+  body: z.object({
+    password: z.string().min(1),
+  }),
+});

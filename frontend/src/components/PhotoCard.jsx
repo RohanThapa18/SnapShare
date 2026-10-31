@@ -1,16 +1,5 @@
 import { useState } from "react";
-import { Heart, Bookmark, Download, Lock, Loader2, Expand, Trash2 } from "lucide-react";
-
-/**
- * Photo tile used by the gallery and Find My Photos.
- *
- * variant:
- *   "masonry" (default) - natural aspect ratio, for CSS-columns layouts
- *   "tile"              - uniform 4:5 crop, for an even grid
- *   "fill"              - fills its grid cell (used by the mosaic layout)
- *
- * Actions float over the photo on hover (always visible on touch screens).
- */
+import { Heart, Flag, Bookmark, Download, Lock, Loader2, Expand, Trash2 } from "lucide-react";
 const glassBtn =
   "flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/30 backdrop-blur-md transition hover:bg-white/35 active:scale-95 disabled:opacity-60";
 
@@ -22,6 +11,7 @@ export default function PhotoCard({
   onDownload,
   onBuy,
   onDelete,
+  onReport,
   liked,
   favourited,
   downloading,
@@ -41,9 +31,8 @@ export default function PhotoCard({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/70 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(38,52,95,0.20)] hover:ring-indigo-300/60 ${shape} ${
-        !loaded && isMasonry ? "min-h-[180px]" : ""
-      } ${className}`}
+      className={`group relative overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/70 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(38,52,95,0.20)] hover:ring-indigo-300/60 ${shape} ${!loaded && isMasonry ? "min-h-[180px]" : ""
+        } ${className}`}
     >
       {!loaded && <div className="skeleton absolute inset-0" aria-hidden="true" />}
 
@@ -57,9 +46,8 @@ export default function PhotoCard({
           alt=""
           loading="lazy"
           onLoad={() => setLoaded(true)}
-          className={`block w-full transition-all duration-700 ease-out group-hover:scale-[1.05] ${
-            isMasonry ? "h-auto" : "h-full object-cover"
-          } ${loaded ? "opacity-100" : "opacity-0"}`}
+          className={`block w-full transition-all duration-700 ease-out group-hover:scale-[1.05] ${isMasonry ? "h-auto" : "h-full object-cover"
+            } ${loaded ? "opacity-100" : "opacity-0"}`}
         />
 
         {/* soft darken + expand hint (desktop) */}
@@ -113,6 +101,15 @@ export default function PhotoCard({
         </div>
 
         <div className="pointer-events-auto flex items-center gap-1.5">
+          {onReport && (
+            <button
+              onClick={() => onReport(photo)}
+              aria-label="Report photo"
+              className={`${glassBtn} hover:!bg-amber-500/70`}
+            >
+              <Flag size={15} />
+            </button>
+          )}
           {onDelete && (
             <button
               onClick={() => onDelete(photo)}

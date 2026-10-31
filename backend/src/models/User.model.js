@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema(
     avatarPublicId: { type: String, default: null, select: false },
     isActive: { type: Boolean, default: true },
     passwordChangedAt: { type: Date, default: null },
+    deletedAt: { type: Date, default: null },
+    upiId: { type: String, default: null }, // where we pay this photographer
   },
   { timestamps: true }
 );
@@ -30,7 +32,8 @@ userSchema.methods.comparePassword = async function (plainPassword) {
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.passwordHash;
-    delete ret.avatarPublicId;   
+    delete ret.avatarPublicId;
+    delete ret.upiId;
     return ret;
   },
 });
