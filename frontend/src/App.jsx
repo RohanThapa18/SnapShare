@@ -86,7 +86,6 @@ function App() {
             <Route path="/purchases" element={<ProtectedRoute><PurchaseHistory /></ProtectedRoute>} />
             <Route path="/sales" element={<ProtectedRoute><MySales /></ProtectedRoute>} />
             <Route path="/admin/payouts" element={<ProtectedRoute><AdminPayouts /></ProtectedRoute>} />
-            <Route path="/admin/payouts" element={<ProtectedRoute><AdminPayouts /></ProtectedRoute>} />
             <Route path="/liked" element={<ProtectedRoute><LikedFavourites /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

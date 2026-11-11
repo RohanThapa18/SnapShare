@@ -31,11 +31,17 @@ MAX_SELFIES_PER_REQUEST = 3
 
 def verify_internal_secret(x_internal_secret: str | None):
     if not settings.internal_shared_secret:
-        logger.warning("INTERNAL_SHARED_SECRET is not set — running with NO request authentication!")
-        return
-    if x_internal_secret != settings.internal_shared_secret:
-        raise HTTPException(status_code=401, detail="Invalid or missing internal secret")
+        logger.error("AI service shared secret is not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="AI service authentication is not configured"
+        )
 
+    if x_internal_secret != settings.internal_shared_secret:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing internal secret"
+        )
 
 @app.post("/detect-and-embed")
 def detect_and_embed(
